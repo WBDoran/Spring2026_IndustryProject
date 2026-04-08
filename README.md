@@ -129,10 +129,15 @@ Primary join:
 ---
 
 ## How to run
+In your folder make sure to have Data folder with the csv file data
 
 ```bash
-python build_duckdb.py
+pip install -r requirements.txt
 ```
+
+Creating_duckDB.ipynb
+
+`Run All`
 
 Then connect:
 
