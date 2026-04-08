@@ -1,151 +1,170 @@
-# Developer Adoption Project: DuckDB Setup and Analysis Guide
+# Git Workflow for This Project
 
-## Overview
-
-This project builds a DuckDB-based analytical foundation to evaluate whether developer engagement translates into real technology adoption.
-
-The workflow includes:
-
-1. Data ingestion from raw CSV exports
-2. Cleaning and standardization
-3. Feature engineering
-4. Segmentation and adoption analysis
+This guide explains how to use Git for this project from start to finish.
 
 ---
 
-## Data sources
-
-* DEVPM_8674_Cal_Poly_Export_dev_activity.csv
-* DEVPM_8674_Cal_Poly_Export_dev_contact.csv
-* DEVPM_8674_Cal_Poly_Export_sdk_download.csv
-
----
-
-## Database
-
-Output:
-
-* `developer_project.duckdb`
-
----
-
-## Tables
-
-### Raw layer
-
-* activity_raw
-* contact_raw
-* sdk_download_raw
-
-### Clean layer
-
-* activity_clean
-* contact_clean
-* sdk_download_clean
-
----
-
-## Data processing approach
-
-* All raw data loaded as VARCHAR
-* Clean tables created with typed fields using TRY_CAST
-* Persistent database used to avoid reprocessing large files
-
----
-
-## Key data issues identified
-
-### Activity data
-
-* Duplicate rows present
-* Outliers in activity_score
-* High null columns
-* Inconsistent text formatting
-
-### Contact data
-
-* Some columns with high missingness
-* One fully null column (rdp_exit_date)
-
-### SDK download data
-
-* Duplicate rows present
-* Negative download counts
-* Several high-null columns
-
----
-
-## Cleaning strategy
-
-* Remove duplicate rows
-* Filter invalid values (e.g., negative downloads)
-* Cap extreme outliers
-* Normalize text fields
-* Drop or ignore low-quality columns
-
----
-
-## Data model
-
-* activity_clean: developer engagement events
-* contact_clean: developer profile attributes
-* sdk_download_clean: product usage and adoption
-
-Primary join:
-
-* activity_clean.dev_contact = contact_clean.developer_id
-
----
-
-## Analytical goals
-
-### Developer segmentation
-
-* classify users by engagement level
-
-### Product analysis
-
-* identify top products and adoption patterns
-
-### Geographic analysis
-
-* identify high-growth regions
-
-### Time-series analysis
-
-* track adoption trends over time
-
----
-
-## Next steps
-
-1. Finalize cleaned tables
-2. Validate joins between datasets
-3. Build developer-level feature table
-4. Define adoption metrics
-5. Create segmentation logic
-6. Perform cohort and trend analysis
-
----
-
-## How to run
+## 1. Clone the Repository
 
 ```bash
-python build_duckdb.py
-```
-
-Then connect:
-
-```python
-import duckdb
-con = duckdb.connect("developer_project.duckdb")
+git clone <repo-url>
+cd Spring2026_IndustryProject
 ```
 
 ---
 
-## Status
+## 2. Add Your Data
 
-* Data ingestion complete
-* Data profiling complete
-* Data cleaning in progress
-* Feature engineering next
+Create a `Data/` folder if it does not exist:
+
+(If you want to use CLI
+
+```bash
+mkdir -p Data
+```
+
+Place your 3 CSV files inside:
+
+(too lazy to copy paste the full name
+```
+Data/
+├── activity.csv
+├── contact.csv
+├── sdk_download.csv
+```
+
+Note:
+
+* These files are ignored by `.gitignore`
+* They will NOT be uploaded to GitHub
+
+---
+
+## 3. Do Your Work
+
+You can now:
+
+* Run scripts
+* Work on notebooks
+* Perform EDA
+* Build features and models
+
+---
+
+## 4. Create Your Branch *(First Time Only)*
+
+Before making changes, create your own branch:
+
+```bash
+git checkout -b your_name
+```
+
+Example (This is mine s dont use the same name!!):
+
+```bash
+git checkout -b Nav
+```
+
+---
+
+## 5. Add Your Changes
+
+Check what changed:
+
+```bash
+git status
+```
+
+Add files:
+
+```bash
+git add .
+```
+
+---
+
+## 6. Commit Your Work
+
+```bash
+git commit -m "Some Message -- will show on github"
+```
+
+---
+
+## 7. Push Your Branch (First Time Only)
+
+```bash
+git push --set-upstream origin your_name
+```
+
+Example:
+
+```bash
+git push --set-upstream origin Nav
+```
+
+---
+
+## 8. After First Push (Normal Workflow)
+
+From now on, use:
+
+```bash
+git add .
+git commit -m "your message"
+git push
+```
+
+---
+
+## 9. Daily Workflow
+
+Then after making changes:
+
+```bash
+git add .
+git commit -m "what you did"
+git push
+```
+
+---
+
+## 10. Important Rules
+
+Do NOT push:
+
+* CSV files
+* DuckDB database files (`.duckdb`, `.tmp`, `.wal`)
+* Raw data folders
+
+Only push:
+
+* `.py` files
+* `.ipynb` notebooks
+* `README.md`
+* `project_log.md`
+* `requirements.txt`
+
+---
+
+## 11. Quick Summary
+
+### First time:
+
+```bash
+git clone <repo>
+cd project
+git checkout -b your_name
+git add .
+git commit -m "message"
+git push --set-upstream origin your_name
+```
+
+### After that:
+
+```bash
+git add .
+git commit -m "message"
+git push
+```
+
