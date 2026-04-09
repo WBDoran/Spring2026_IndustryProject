@@ -1,0 +1,55 @@
+# =========================
+# DATA FILES (DO NOT TRACK)
+# =========================
+*.csv
+*.parquet
+*.xlsx
+*.json
+
+# NVIDIA export files (extra safety)
+DEVPM_*.csv
+
+# =========================
+# DATABASE FILES
+# =========================
+*.duckdb
+*.duckdb.tmp
+*.duckdb.wal
+*.db
+*.sqlite
+
+# =========================
+# DATA DIRECTORIES
+# =========================
+data/
+datasets/
+raw_data/
+
+# =========================
+# NOTEBOOK CHECKPOINTS
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# PYTHON CACHE
+# =========================
+__pycache__/
+*.pyc
+
+# =========================
+# ENVIRONMENT FILES
+# =========================
+.env
+venv/
+.env/
+
+# =========================
+# SYSTEM FILES
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# OUTPUT FILES (OPTIONAL)
+# =========================
+*.html
