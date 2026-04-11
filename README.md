@@ -205,74 +205,7 @@ This links your local branch to the remote branch.
 
 ---
 
-## 13. Keeping Your Branch Updated (IMPORTANT)
-
-Before starting new work each day, update your branch with the latest changes from main:
-
-```bash
-git checkout main
-git pull
-```
-
-Then go back to your branch and merge:
-
-```bash
-git checkout your_name
-git merge main
-```
-
-Resolve any conflicts if they appear, then:
-
-```bash
-git add .
-git commit -m "resolved merge conflicts"
-```
-
----
-
-## 14. Handling Merge Conflicts
-
-Sometimes Git cannot automatically merge changes.
-
-When this happens:
-
-1. Open the conflicting file
-2. Look for markers like:
-
-```text
-<<<<<<< HEAD
-your code
-=======
-other code
->>>>>>> main
-```
-
-3. Edit the file to keep the correct version
-4. Remove the markers
-5. Save the file
-
-Then run:
-
-```bash
-git add .
-git commit -m "fixed merge conflict"
-```
-
----
-
-## 15. Pulling Updates Safely
-
-If you just want the latest updates without merging manually:
-
-```bash
-git pull origin main
-```
-
-Note: Only do this when you are on your branch.
-
----
-
-## 16. Good Commit Message Examples
+## 13. Good Commit Message Examples
 
 Use clear and meaningful messages:
 
@@ -290,7 +223,7 @@ Bad:
 
 ---
 
-## 17. Common Mistakes to Avoid
+## 14. Common Mistakes to Avoid
 
 * Working directly on main branch
 * Forgetting to pull latest changes
@@ -300,7 +233,7 @@ Bad:
 
 ---
 
-## 18. Final Tips
+## 15. Final Tips
 
 * Commit often, but keep commits meaningful
 * Pull before you start working
@@ -310,7 +243,7 @@ Bad:
 
 ---
 
-## 19. Full Workflow Recap
+## 16. Full Workflow Recap
 
 ### New Machine Setup:
 
