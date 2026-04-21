@@ -304,3 +304,87 @@ Approach:
 ### 5. Open Ecosystem Blind Spots
 
 * Some adoption may occur outside tracked platforms
+
+
+## UPDATE (4.20.2026)
+# UPDATED PROJECT LOG
+
+## Work Completed (Updated)
+
+### 1. Infrastructure and Database
+
+* Persistent DuckDB database established
+* Supports large-scale analytics (100M+ rows)
+* All transformations executed inside DuckDB for performance
+
+### 2. Data Ingestion Pipelines
+
+Completed ingestion pipelines via notebooks:
+
+* Cleaning.ipynb
+* Creating_duckDB.ipynb
+* JoinData.ipynb
+
+Datasets ingested:
+
+* Activity data → activity_raw, activity_clean
+* Contact data → contact_raw, contact_clean
+* SDK downloads → sdk_download_raw, sdk_download_clean
+
+### 3. Data Cleaning and Validation
+
+Implemented in Cleaning.ipynb:
+
+* Duplicate detection and removal
+* Null analysis across all tables
+* Outlier detection (activity_score)
+* Invalid values handling (negative downloads)
+
+Standardization:
+
+* LOWER(TRIM()) applied to text fields
+* Type casting using TRY_CAST
+
+### 4. Data Profiling and EDA
+
+Completed exploratory analysis notebooks:
+
+* EDA_DuckDB.ipynb
+* EDA_Join.ipynb
+
+Key insights:
+
+* Activity data is high volume but noisy
+* Contact table is stable but sparse in attributes
+* SDK downloads provide strongest adoption signal
+
+### 5. Data Integration
+
+* Joined activity_clean with contact_clean
+* Validated join coverage and missing mappings
+* Identified limitation: no direct link to SDK downloads
+
+### 6. Project Alignment with NVIDIA Objectives
+
+Based on kickoff meeting:
+
+* Focus on engagement quality, not just volume
+* Prioritize highly engaged developers
+* Build repeatable analytical framework
+
+Core deliverables:
+
+* Developer cohort segmentation
+* Asset impact analysis
+* Data enrichment strategy
+
+
+
+## Current Status
+
+* Data pipeline complete
+* Cleaning strategy defined and partially implemented
+* EDA completed on individual and joined datasets
+* Ready to begin feature engineering and modeling
+
+
