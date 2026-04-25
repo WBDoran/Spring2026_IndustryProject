@@ -1,102 +1,582 @@
-cluster users based on their maturity level in the developer journey. Instead of only looking at how many activities they did, we look at how their behavior changes over 30, 60, 90, and longer-day periods. This helps identify whether a user is just exploring, actively learning, evaluating NVIDIA technologies, or showing signs of real adoption.
+# Suggested feature architecture
 
-clustering developers by maturity in their journey using longitudinal activity and profile features across 30, 60, 90, 180, and 365-day windows, so we can distinguish exploration, learning, evaluation, and adoption behavior over time, while also identifying the current gap between engagement data and true user-level SDK adoption measurement.
+I would split the engineered features into 5 layers.
 
+## Layer 1: Base joined table
 
-Features I think we need
+**Table:** `activity_enriched_v1`
 
-developer u and a time window W days
+This is where you join activity rows to contact metadata.
 
-- A(u,W) = all activity rows for user u in the last W days
-- D(u,W) = all SDK download rows for user u in the last W days
-- today = reference date for feature generation
-- n(X) = number of rows in set X
-- sum(X.f) = sum of field f over set X
-- count_distinct(X.f) = distinct count of field f
-- I(condition) = indicator, 1 if true else 0
+### Needed columns
 
-W ∈ {30, 60, 90, 180, 365, lifetime}
+From activities:
 
-| Feature Name         | Formula / Pseudocode                   | Source   | Why it Matters              |
-| -------------------- | -------------------------------------- | -------- | --------------------------- |
-| activity_count_W     | `COUNT(A_W)`                           | activity | Total engagement volume     |
-| activity_score_sum_W | `SUM(activity_score)`                  | activity | Weighted engagement quality |
-| activity_score_avg_W | `SUM(score) / COUNT(*)`                | activity | Average engagement quality  |
-| activity_score_max_W | `MAX(activity_score)`                  | activity | Peak engagement             |
-| active_days_W        | `COUNT(DISTINCT DATE(activity_date))`  | activity | Engagement spread           |
-| activities_per_day_W | `activity_count_W / active_days_W`     | activity | Intensity per session       |
-| score_per_day_W      | `activity_score_sum_W / active_days_W` | activity | Depth per session           |
+* dev_contact
+* activity_date
+* activity
+* activity_name
+* activity_type
+* activity_role
+* activity_attendance
+* activity_score
+* filepath
+* lead_source
+* lead_source_details
+* nvidia_campaign_id
 
-| Feature Name             | Formula / Pseudocode                  | Source   | Why it Matters          |
-| ------------------------ | ------------------------------------- | -------- | ----------------------- |
-| days_since_last_activity | `today - MAX(activity_date)`          | activity | Detects dormancy        |
-| engagement_span_W        | `MAX(date) - MIN(date)`               | activity | Duration of engagement  |
-| active_weeks_W           | `COUNT(DISTINCT WEEK(activity_date))` | activity | Weekly consistency      |
-| pct_weeks_active_W       | `active_weeks_W / (W/7)`              | activity | Regularity of usage     |
-| avg_gap_days_W           | `MEAN(diff(sorted(activity_dates)))`  | activity | Consistency             |
-| std_gap_days_W           | `STD(diff(...))`                      | activity | Stability vs randomness |
-| active_last_14d          | `1 if last_activity ≤ 14 days`        | activity | Recent engagement flag  |
+From contacts:
 
-| Feature Name               | Formula / Pseudocode                 | Source   | Why it Matters          |
-| -------------------------- | ------------------------------------ | -------- | ----------------------- |
-| learning_count_W           | `COUNT(activity IN learning_types)`  | activity | Early-stage behavior    |
-| event_count_W              | `COUNT(activity IN event_types)`     | activity | Community engagement    |
-| technical_count_W          | `COUNT(activity IN technical_types)` | activity | Deep engagement         |
-| program_count_W            | `COUNT(activity IN program_types)`   | activity | Commitment level        |
-| learning_share_W           | `learning_count / total_count`       | activity | Passive learning signal |
-| technical_share_W          | `technical_count / total_count`      | activity | Adoption signal         |
-| event_share_W              | `event_count / total_count`          | activity | Exploration/community   |
-| passive_to_technical_ratio | `learning_count / technical_count`   | activity | Maturity indicator      |
+* developer_id
+* created_date
+* first_activity_date
+* last_activity_date
+* development_areas
+* fields_of_interest
+* account_id
+* account_type
+* country
+* region
+* industry_segment_vertical
+* program_application_source
 
-| Feature Name              | Formula / Pseudocode            | Source   | Why it Matters        |
-| ------------------------- | ------------------------------- | -------- | --------------------- |
-| distinct_activity_types_W | `COUNT(DISTINCT activity)`      | activity | Breadth of engagement |
-| distinct_activity_names_W | `COUNT(DISTINCT activity_name)` | activity | Asset exploration     |
-| distinct_campaigns_W      | `COUNT(DISTINCT campaign_id)`   | activity | Exposure diversity    |
-| activity_entropy_W        | `-Σ(p * log p)`                 | activity | Behavioral diversity  |
-| top_activity_share_W      | `MAX(activity_share)`           | activity | Focus vs exploration  |
+### DuckDB pseudo-code
 
-| Feature Name               | Formula / Pseudocode       | Source       | Why it Matters        |
-| -------------------------- | -------------------------- | ------------ | --------------------- |
-| sdk_download_count_W       | `COUNT(D_W)`               | sdk_download | Core adoption signal  |
-| unique_sdk_W               | `COUNT(DISTINCT product)`  | sdk_download | Breadth of usage      |
-| unique_sources_W           | `COUNT(DISTINCT source)`   | sdk_download | Platform spread       |
-| repeat_download_rate       | `(total - unique) / total` | sdk_download | Depth of usage        |
-| downloads_per_day          | `downloads / active_days`  | both         | Intensity of adoption |
-| download_to_activity_ratio | `downloads / activities`   | both         | Conversion signal     |
-| has_download_flag          | `1 if downloads > 0`       | sdk_download | Binary adoption       |
-| repeat_download_flag       | `1 if total > unique`      | sdk_download | Strong usage signal   |
+```sql
+create or replace table activity_enriched_v1 as
+select
+    a.dev_contact as developer_id,
+    cast(a.activity_date as date) as activity_date,
+    a.activity,
+    a.activity_name,
+    a.activity_type,
+    a.activity_role,
+    a.activity_attendance,
+    coalesce(a.activity_score, 0) as activity_score,
+    a.filepath,
+    a.lead_source,
+    a.lead_source_details,
+    a.nvidia_campaign_id,
+    c.created_date,
+    c.first_activity_date,
+    c.last_activity_date,
+    c.development_areas,
+    c.fields_of_interest,
+    c.account_id,
+    c.account_type,
+    c.country,
+    c.region,
+    c.industry_segment_vertical,
+    c.program_application_source
+from activity_clean a
+left join contact_clean c
+    on a.dev_contact = c.developer_id;
+```
 
-| Feature Name            | Formula / Pseudocode          | Source       | Why it Matters         |
-| ----------------------- | ----------------------------- | ------------ | ---------------------- |
-| activity_growth_30_60   | `activity_60 - activity_30`   | activity     | Growth trajectory      |
-| activity_growth_60_90   | `activity_90 - activity_60`   | activity     | Continued engagement   |
-| score_growth_30_60      | `score_60 - score_30`         | activity     | Increasing depth       |
-| download_growth_30_60   | `downloads_60 - downloads_30` | sdk_download | Adoption progression   |
-| technical_share_growth  | `tech_90 - tech_30`           | activity     | Shift to technical use |
-| engagement_acceleration | `(90-60) - (60-30)`           | activity     | Momentum               |
-| retention_slope         | `slope([30,60,90])`           | activity     | Trend of engagement    |
+---
 
-| Feature Name      | Formula / Pseudocode               | Source   | Why it Matters       |
-| ----------------- | ---------------------------------- | -------- | -------------------- |
-| attended_count_W  | `COUNT(attendance = attended)`     | activity | Real participation   |
-| no_show_count_W   | `COUNT(attendance != attended)`    | activity | Weak engagement      |
-| attendance_rate   | `attended / total_events`          | activity | Commitment           |
-| contributor_count | `COUNT(role IN contributor_roles)` | activity | Advanced engagement  |
-| serious_share_W   | `serious_actions / total`          | activity | Depth of interaction |
+## Layer 2: Activity ontology features
 
-| Feature Name             | Formula / Pseudocode            | Source  | Why it Matters         |
-| ------------------------ | ------------------------------- | ------- | ---------------------- |
-| profile_age_days         | `today - created_date`          | contact | User maturity baseline |
-| engagement_tenure_days   | `today - first_activity`        | contact | Experience level       |
-| days_since_devzone_login | `today - last_login`            | contact | Platform engagement    |
-| is_rdp_member            | `1 if in program`               | contact | Commitment             |
-| rdp_tenure_days          | `today - program_start`         | contact | Depth of involvement   |
-| days_to_first_activity   | `first_activity - created_date` | contact | Activation speed       |
+**Table:** `activity_ontology_v1`
 
-| Feature Name             | Formula / Pseudocode               | Source | Why it Matters         |
-| ------------------------ | ---------------------------------- | ------ | ---------------------- |
-| days_to_first_download   | `first_download - first_activity`  | both   | Adoption speed         |
-| activity_before_download | `COUNT(activity < first_download)` | both   | Effort before adoption |
-| download_after_training  | `1 if training before download`    | both   | Learning impact        |
-| learning_to_download_gap | `download_date - learning_date`    | both   | Conversion timing      |
+This is the most important feature table. Each activity gets mapped into:
+
+* journey signal
+* effort level
+* persona lane hint
+* modality
+
+This is directly supported by the activity categories in the kickoff materials, which include DLI training, webinars, events, downloads, forum contributions, hosted API, and Brev. 
+
+## 2A. Journey-signal features
+
+Map each raw activity into one of:
+
+* Discover
+* Learn
+* Evaluate
+* Build
+* Champion
+
+### Suggested mapping
+
+* `On-Demand Views`, `Dev Program Membership`, `Event Registrations`, `Product Specific Comms` → Discover
+* `DLI Training`, `Webinars`, `Conference`, `Conf Sessions Live`, `Other Events` → Learn
+* `DevZone Downloads`, repeated docs/assets-type interactions → Evaluate
+* `NGC Downloads`, `Hosted API`, `Hackathon`, `Brev`, `Program Applications` → Build
+* `Forum Contributions`, `Bugs Filed`, speaker/instructor roles, contests → Champion
+
+### DuckDB pseudo-code
+
+```sql
+create or replace table activity_ontology_v1 as
+select
+    *,
+    case
+        when activity in ('On-Demand Views', 'Dev Program Membership', 'Event Registrations', 'Product Specific Comms')
+            then 'Discover'
+        when activity in ('DLI Training', 'Webinars', 'Conference', 'Conf Sessions Live', 'Other Events')
+            then 'Learn'
+        when activity in ('DevZone Downloads')
+            then 'Evaluate'
+        when activity in ('NGC Downloads', 'Hosted API', 'Hackathon', 'Brev', 'Program Applications')
+            then 'Build'
+        when activity in ('Forum Contributions', 'Bugs Filed', 'Contests')
+             or lower(coalesce(activity_role, '')) in ('speaker', 'instructor', 'presenter')
+            then 'Champion'
+        else 'Other'
+    end as journey_signal
+from activity_enriched_v1;
+```
+
+## 2B. Effort-level features
+
+Use:
+
+* passive
+* moderate
+* high_effort
+
+### Example logic
+
+```sql
+case
+    when activity in ('On-Demand Views', 'Product Specific Comms') then 'Passive'
+    when activity in ('Webinars', 'Conference', 'Other Events', 'DLI Training', 'DevZone Downloads') then 'Moderate'
+    when activity in ('Hosted API', 'Hackathon', 'Brev', 'NGC Downloads', 'Forum Contributions', 'Bugs Filed', 'Program Applications') then 'High'
+    else 'Unknown'
+end as effort_level
+```
+
+## 2C. Persona-lane hint features
+
+Use keywords from:
+
+* `activity_name`
+* `filepath`
+* `lead_source_details`
+* maybe `development_areas` / `fields_of_interest`
+
+Suggested lanes:
+
+* CUDA / Accelerated
+* GenAI / Inference
+* Robotics / Edge
+* Simulation / Omniverse
+* Learning / Community
+
+### DuckDB pseudo-code
+
+```sql
+case
+    when regexp_matches(lower(coalesce(activity_name,'') || ' ' || coalesce(filepath,'') || ' ' || coalesce(lead_source_details,'')),
+        'cuda|cudnn|rapids|nccl|cutlass|dali')
+        then 'CUDA'
+    when regexp_matches(lower(coalesce(activity_name,'') || ' ' || coalesce(filepath,'') || ' ' || coalesce(lead_source_details,'')),
+        'triton|tensorrt|nemo|nim|ngc|huggingface|inference|llm')
+        then 'GenAI'
+    when regexp_matches(lower(coalesce(activity_name,'') || ' ' || coalesce(filepath,'') || ' ' || coalesce(lead_source_details,'')),
+        'jetson|isaac|robotics|edge')
+        then 'Robotics'
+    when regexp_matches(lower(coalesce(activity_name,'') || ' ' || coalesce(filepath,'') || ' ' || coalesce(lead_source_details,'')),
+        'omniverse|openusd|usd|simulation|digital twin')
+        then 'Simulation'
+    else 'Learning_Community'
+end as persona_hint
+```
+
+---
+
+## Layer 3: Windowed developer features
+
+**Tables:**
+
+* `dev_features_30d_v1`
+* `dev_features_90d_v1`
+* `dev_features_180d_v1`
+* maybe `dev_weekly_features_v1` for HMM
+
+These align directly with your original project plan to capture behavior over 30, 90, 180, and 360-day windows. 
+
+These are the core features I would engineer.
+
+# Feature groups to build
+
+## A. Volume features
+
+These measure how much activity happened.
+
+### Features
+
+* `activity_count_total`
+* `activity_score_sum`
+* `activity_score_avg`
+* `unique_activity_days`
+* `unique_activity_types`
+* `high_effort_activity_count`
+
+### DuckDB pseudo-code
+
+```sql
+select
+    developer_id,
+    count(*) as activity_count_total,
+    sum(activity_score) as activity_score_sum,
+    avg(activity_score) as activity_score_avg,
+    count(distinct activity_date) as unique_activity_days,
+    count(distinct activity) as unique_activity_types,
+    sum(case when effort_level = 'High' then 1 else 0 end) as high_effort_activity_count
+from activity_ontology_v1
+where activity_date >= current_date - interval 90 day
+group by developer_id;
+```
+
+---
+
+## B. Recency features
+
+These measure how recently the user acted.
+
+### Features
+
+* `days_since_last_activity`
+* `days_since_last_build_signal`
+* `days_since_last_learn_signal`
+* `days_since_first_activity`
+* `tenure_days`
+
+### DuckDB pseudo-code
+
+```sql
+select
+    developer_id,
+    date_diff('day', max(activity_date), current_date) as days_since_last_activity,
+    date_diff('day',
+        max(case when journey_signal = 'Build' then activity_date end),
+        current_date) as days_since_last_build_signal,
+    date_diff('day',
+        max(case when journey_signal = 'Learn' then activity_date end),
+        current_date) as days_since_last_learn_signal,
+    date_diff('day', min(activity_date), current_date) as days_since_first_activity,
+    date_diff('day', cast(min(created_date) as date), current_date) as tenure_days
+from activity_ontology_v1
+group by developer_id;
+```
+
+---
+
+## C. Diversity features
+
+These measure breadth of engagement.
+
+### Features
+
+* `unique_journey_signals`
+* `unique_persona_hints`
+* `unique_modalities`
+* `active_weeks`
+* `channel_breadth`
+
+### DuckDB pseudo-code
+
+```sql
+select
+    developer_id,
+    count(distinct journey_signal) as unique_journey_signals,
+    count(distinct persona_hint) as unique_persona_hints,
+    count(distinct activity) as channel_breadth,
+    count(distinct date_trunc('week', activity_date)) as active_weeks
+from activity_ontology_v1
+group by developer_id;
+```
+
+---
+
+## D. Journey-state count features
+
+These are the simplest and most useful.
+
+### Features
+
+* `discover_count`
+* `learn_count`
+* `evaluate_count`
+* `build_count`
+* `champion_count`
+
+### DuckDB pseudo-code
+
+```sql
+select
+    developer_id,
+    sum(case when journey_signal = 'Discover' then 1 else 0 end) as discover_count,
+    sum(case when journey_signal = 'Learn' then 1 else 0 end) as learn_count,
+    sum(case when journey_signal = 'Evaluate' then 1 else 0 end) as evaluate_count,
+    sum(case when journey_signal = 'Build' then 1 else 0 end) as build_count,
+    sum(case when journey_signal = 'Champion' then 1 else 0 end) as champion_count
+from activity_ontology_v1
+where activity_date >= current_date - interval 90 day
+group by developer_id;
+```
+
+---
+
+## E. Weighted behavioral scores
+
+These are better than one raw engagement score.
+
+### Features
+
+* `learn_score`
+* `evaluate_score`
+* `build_score`
+* `champion_score`
+* `passive_score`
+* `high_effort_score`
+
+### DuckDB pseudo-code
+
+```sql
+select
+    developer_id,
+    sum(case when journey_signal = 'Learn' then activity_score else 0 end) as learn_score,
+    sum(case when journey_signal = 'Evaluate' then activity_score else 0 end) as evaluate_score,
+    sum(case when journey_signal = 'Build' then activity_score else 0 end) as build_score,
+    sum(case when journey_signal = 'Champion' then activity_score else 0 end) as champion_score,
+    sum(case when effort_level = 'Passive' then activity_score else 0 end) as passive_score,
+    sum(case when effort_level = 'High' then activity_score else 0 end) as high_effort_score
+from activity_ontology_v1
+group by developer_id;
+```
+
+---
+
+## F. Frequency / cadence features
+
+These capture return behavior.
+
+### Features
+
+* `avg_days_between_activities`
+* `median_days_between_activities`
+* `activity_weeks_last_12`
+* `max_gap_days`
+* `reactivation_flag`
+
+### Best split
+
+* compute base event sequence in DuckDB
+* finish interval calculations in Python if needed
+
+### Python pseudo-code
+
+```python
+df = activity_df.sort_values(["developer_id", "activity_date"])
+df["prev_date"] = df.groupby("developer_id")["activity_date"].shift(1)
+df["gap_days"] = (df["activity_date"] - df["prev_date"]).dt.days
+
+cadence = (
+    df.groupby("developer_id")
+      .agg(
+          avg_days_between_activities=("gap_days", "mean"),
+          median_days_between_activities=("gap_days", "median"),
+          max_gap_days=("gap_days", "max")
+      )
+      .reset_index()
+)
+
+cadence["reactivation_flag"] = (cadence["max_gap_days"] >= 60).astype(int)
+```
+
+DuckDB can do some of this with window functions too, but Python is sometimes easier for debugging interval features.
+
+---
+
+## G. Persona-score features
+
+These determine dominant lane.
+
+### Features
+
+* `cuda_score`
+* `genai_score`
+* `robotics_score`
+* `simulation_score`
+* `learning_community_score`
+
+### DuckDB pseudo-code
+
+```sql
+select
+    developer_id,
+    sum(case when persona_hint = 'CUDA' then activity_score else 0 end) as cuda_score,
+    sum(case when persona_hint = 'GenAI' then activity_score else 0 end) as genai_score,
+    sum(case when persona_hint = 'Robotics' then activity_score else 0 end) as robotics_score,
+    sum(case when persona_hint = 'Simulation' then activity_score else 0 end) as simulation_score,
+    sum(case when persona_hint = 'Learning_Community' then activity_score else 0 end) as learning_community_score
+from activity_ontology_v1
+group by developer_id;
+```
+
+### Persona assignment pseudo-code
+
+```sql
+case
+    when genai_score >= greatest(cuda_score, robotics_score, simulation_score, learning_community_score) then 'GenAI'
+    when cuda_score >= greatest(genai_score, robotics_score, simulation_score, learning_community_score) then 'CUDA'
+    when robotics_score >= greatest(genai_score, cuda_score, simulation_score, learning_community_score) then 'Robotics'
+    when simulation_score >= greatest(genai_score, cuda_score, robotics_score, learning_community_score) then 'Simulation'
+    else 'Learning_Community'
+end as persona
+```
+
+---
+
+## H. Journey-state assignment features
+
+These support your rule-based current-state label.
+
+### Features
+
+* `current_journey_state`
+* `current_state_confidence`
+* `highest_state_reached`
+* `recent_build_flag`
+* `recent_champion_flag`
+
+### Simple rule logic
+
+```sql
+case
+    when champion_count >= 2 then 'Champion'
+    when build_count >= 2 or build_score >= 20 then 'Build'
+    when evaluate_count >= 2 then 'Evaluate'
+    when learn_count >= 2 then 'Learn'
+    when discover_count >= 1 then 'Discover'
+    else 'Dormant'
+end as current_journey_state
+```
+
+You can tune thresholds later.
+
+---
+
+## I. Transition features
+
+These compare window outputs.
+
+### Features
+
+* `state_30d`
+* `state_90d`
+* `state_180d`
+* `progressed_30_to_90`
+* `dropped_30_to_90`
+* `state_change_count`
+
+### DuckDB pseudo-code
+
+```sql
+create or replace table dev_transition_v1 as
+select
+    a.developer_id,
+    a.current_journey_state as state_30d,
+    b.current_journey_state as state_90d,
+    c.current_journey_state as state_180d,
+    case
+        when a.state_rank < b.state_rank then 1 else 0
+    end as progressed_30_to_90,
+    case
+        when a.state_rank > b.state_rank then 1 else 0
+    end as dropped_30_to_90
+from dev_features_30d_v1 a
+left join dev_features_90d_v1 b using(developer_id)
+left join dev_features_180d_v1 c using(developer_id);
+```
+
+---
+
+## J. HMM-ready weekly features
+
+If you include HMM, this is the table the modeling team should use.
+
+**Table:** `dev_weekly_features_v1`
+
+### Features per developer-week
+
+* `week_start`
+* `activity_count_total`
+* `activity_score_sum`
+* `learn_count`
+* `evaluate_count`
+* `build_count`
+* `champion_count`
+* `high_effort_activity_count`
+* `unique_activity_types`
+* `persona_lane_scores`
+* `days_since_prev_activity`
+* `active_flag`
+
+### DuckDB pseudo-code
+
+```sql
+create or replace table dev_weekly_features_v1 as
+select
+    developer_id,
+    date_trunc('week', activity_date) as week_start,
+    count(*) as activity_count_total,
+    sum(activity_score) as activity_score_sum,
+    sum(case when journey_signal = 'Learn' then 1 else 0 end) as learn_count,
+    sum(case when journey_signal = 'Evaluate' then 1 else 0 end) as evaluate_count,
+    sum(case when journey_signal = 'Build' then 1 else 0 end) as build_count,
+    sum(case when journey_signal = 'Champion' then 1 else 0 end) as champion_count,
+    sum(case when effort_level = 'High' then 1 else 0 end) as high_effort_activity_count,
+    count(distinct activity) as unique_activity_types,
+    sum(case when persona_hint = 'CUDA' then activity_score else 0 end) as cuda_score,
+    sum(case when persona_hint = 'GenAI' then activity_score else 0 end) as genai_score,
+    sum(case when persona_hint = 'Robotics' then activity_score else 0 end) as robotics_score,
+    sum(case when persona_hint = 'Simulation' then activity_score else 0 end) as simulation_score
+from activity_ontology_v1
+group by 1, 2;
+```
+
+Then Python handles:
+
+* filling missing inactive weeks
+* `log1p`
+* scaling
+* sequence packing for the HMM
+
+### Python pseudo-code
+
+```python
+weekly = weekly.sort_values(["developer_id", "week_start"])
+
+feature_cols = [
+    "activity_count_total",
+    "activity_score_sum",
+    "learn_count",
+    "evaluate_count",
+    "build_count",
+    "champion_count",
+    "high_effort_activity_count",
+    "unique_activity_types",
+    "cuda_score",
+    "genai_score",
+    "robotics_score",
+    "simulation_score"
+]
+
+weekly[feature_cols] = np.log1p(weekly[feature_cols])
+
+X_list = []
+lengths = []
+
+for dev_id, g in weekly.groupby("developer_id"):
+    X = g[feature_cols].to_numpy()
+    X_list.append(X)
+    lengths.append(len(X))
+
+X_all = np.vstack(X_list)
+```
+
