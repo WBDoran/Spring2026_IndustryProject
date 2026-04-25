@@ -1,20 +1,26 @@
+# Developer Persona & Journey Analysis
+
 ## Overview
 
-This project builds a scalable DuckDB-based analytical pipeline to evaluate whether **developer engagement leads to meaningful technology adoption**, rather than just higher interaction counts.
+This project builds a scalable DuckDB-based analytical pipeline to evaluate how **developer engagement evolves into meaningful technical usage** within NVIDIA’s ecosystem.
 
-The core objective is to:
+Rather than relying on a single engagement score, we model developer behavior using two key dimensions:
 
-* understand developer behavior across the engagement lifecycle
-* identify which activities drive real adoption signals
-* build a repeatable framework for cohort analysis and monitoring
+* **Persona (What they build)** → stable
+* **Journey State (Where they are)** → dynamic
 
-The workflow includes:
+This enables a clearer understanding of how developers progress from initial exploration to real usage and contribution.
 
-1. Data ingestion from raw CSV exports
-2. Data cleaning and standardization
-3. Time-based feature engineering
-4. Developer segmentation (behavioral maturity)
-5. Engagement → adoption analysis
+
+
+## Objectives
+
+* Identify **developer personas** based on technical activity patterns
+* Track **journey progression** over time (Discover → Champion)
+* Analyze **engagement → adoption relationships**
+* Detect **drop-offs, transitions, and high-value behaviors**
+* Build a **repeatable, scalable analytical framework**
+* Prototype a **sequence model (HMM)** to improve journey modeling
 
 
 
@@ -22,28 +28,30 @@ The workflow includes:
 
 The project uses three primary datasets:
 
-* `DEVPM_8674_Cal_Poly_Export_dev_activity.csv`
-  → Developer engagement events (trainings, webinars, downloads, etc.)
+* `dev_activity.csv`
+  → Developer engagement events (trainings, webinars, downloads, APIs, etc.)
 
-* `DEVPM_8674_Cal_Poly_Export_dev_contact.csv`
+* `dev_contact.csv`
   → Developer profile and account-level attributes
 
-* `DEVPM_8674_Cal_Poly_Export_sdk_download.csv`
-  → Product interaction signals across platforms (PyPI, NGC, DevZone, etc.)
+* `sdk_download.csv`
+  → Aggregate product interaction signals (PyPI, NGC, DevZone, etc.)
 
 
 
 ## Database
 
-All data is stored in a persistent DuckDB database:
+All data is stored in:
 
-* `developer_project.duckdb`
+```
+developer_project.duckdb
+```
 
 This enables:
 
 * fast querying on large datasets (100M+ rows)
-* reproducibility across sessions
-* separation of raw and cleaned layers
+* reproducibility
+* separation of raw, clean, and feature layers
 
 
 
@@ -51,191 +59,164 @@ This enables:
 
 ### Raw Layer
 
-Unmodified ingested data:
-
 * `activity_raw`
 * `contact_raw`
 * `sdk_download_raw`
 
 ### Clean Layer
 
-Typed and standardized datasets:
-
 * `activity_clean`
 * `contact_clean`
 * `sdk_download_clean`
 
+### Feature Layer (New)
 
-
-## Data Processing Approach
-
-* All raw data initially loaded as `VARCHAR` to prevent type errors
-* Clean tables created using `TRY_CAST` for safe type conversion
-* Persistent storage avoids repeated ingestion of large files
-* Transformations performed directly in DuckDB for scalability
-
-
-
-## Key Data Issues Identified
-
-### Activity Data
-
-* Duplicate rows present
-* Extreme outliers in `activity_score`
-* High-null columns (e.g., attendance)
-* Very high cardinality in `activity_name`
-* Inconsistent text formatting
-
-Important note:
-Not all activities represent equal engagement intensity. This dataset mixes low- and high-intent signals.
+* `activity_ontology_v1`
+* `dev_features_30d_v1`
+* `dev_features_90d_v1`
+* `dev_features_180d_v1`
+* `dev_weekly_features_v1`
+* `dev_profile_v1`
+* `dev_transition_v1`
 
 
 
-### Contact Data
+## Core Framework
 
-* Several columns with high missingness
-* `rdp_exit_date` fully null
-* Developer ID behaves as a reliable primary key
+### 1. Developer Persona (Stable)
 
-Important note:
-This dataset is primarily used for enrichment, not core modeling.
+Each developer is assigned a dominant technical lane:
 
-
-
-### SDK Download Data
-
-* Duplicate rows present
-* Negative `download_count` values
-* High-null technical fields (OS, architecture)
-
-Important note:
-This is the strongest proxy for **product-level engagement**, but it is not directly linked to individual developers.
+* CUDA / Accelerated Computing
+* GenAI / Inference & APIs
+* Robotics / Edge AI
+* Simulation / Omniverse
+* Learning / Community
 
 
 
-## Cleaning Strategy
+### 2. Journey State (Dynamic)
 
-### Deduplication
+Each developer is assigned a current stage:
 
-* Remove full-row duplicates from activity and SDK datasets
+* Discover
+* Learn
+* Evaluate
+* Build
+* Champion
 
-### Data Validation
+States are derived from activity behavior over recent time windows.
 
-* Filter invalid values (e.g., negative downloads)
-* Cap extreme outliers (e.g., activity_score)
 
-### Standardization
 
-* Normalize text fields:
+## Data Processing Pipeline
 
-```sql
-LOWER(TRIM(activity_name))
+### 1. Data Cleaning
+
+* Deduplicate activity and download tables
+* Handle nulls and invalid values
+* Standardize text fields
+* Cast types using `TRY_CAST`
+
+
+
+### 2. Activity Ontology (Key Step)
+
+Each activity is mapped into:
+
+* **Journey signal** (Discover → Champion)
+* **Persona hint** (CUDA, GenAI, etc.)
+* **Effort level** (Passive, Moderate, High)
+
+This ensures different activity types are treated appropriately.
+
+
+
+### 3. Feature Engineering
+
+Features are built over rolling windows (30 / 90 / 180 days):
+
+#### Core Feature Types
+
+* Volume (activity count, score)
+* Recency (days since last activity)
+* Diversity (unique activities, breadth)
+* Behavioral signals:
+
+  * learn_count
+  * evaluate_count
+  * build_count
+  * champion_count
+* Persona scores (CUDA, GenAI, etc.)
+* Effort-based features (high-effort actions)
+
+
+
+### 4. Segmentation
+
+Each developer receives:
+
+* **Persona**
+* **Current Journey State**
+
+Final segmentation:
+
 ```
-
-### Column Selection
-
-Drop or ignore low-quality fields:
-
-* very high null rate (>80%)
-* low analytical value
-
-### Null Handling
-
-* > 80% null → drop
-* 30–80% → evaluate carefully
-* <30% → retain
-
-
-
-## Data Model
-
-* `activity_clean` → developer engagement events
-* `contact_clean` → developer profile attributes
-* `sdk_download_clean` → product interaction signals
-
-Primary join:
-
-```sql
-activity_clean.dev_contact = contact_clean.developer_id
+Persona × Journey State
 ```
-
-Key limitation:
-
-* No direct user-level link between SDK downloads and developers
-* Adoption must be inferred using aggregate or indirect methods
-
-
-
-## Analytical Framework
-
-### 1. Developer Maturity Segmentation
-
-Goal:
-Segment developers based on **behavior over time**, not just total activity.
 
 Examples:
 
-* Explorers (low activity, broad interactions)
-* Learners (consistent training and content engagement)
-* Evaluators (targeted, repeated engagement)
-* Adopters (signals of real product usage)
+* GenAI → Evaluate
+* CUDA → Build
+* Robotics → Learn
 
 
 
-### 2. Engagement → Adoption Analysis
+### 5. Journey Analysis
 
-Core question:
-Which engagement patterns lead to adoption?
+We track:
 
-Approach:
-
-* Analyze sequences of events over time
-* Identify activities that precede stronger signals (e.g., downloads)
-* Compare high-value vs low-value engagement
+* transitions across time windows
+* progression rates (Learn → Build)
+* drop-offs and inactivity
+* time spent in each stage
 
 
 
-### 3. Time-Based Feature Engineering
+## Advanced Modeling (HMM Extension)
 
-* Build rolling windows:
+We implement a **Hidden Markov Model (HMM)** as an extension.
 
-  * 30, 60, 90, 180, 365 days
-* Capture:
+### Purpose
 
-  * recency
-  * frequency
-  * progression
+* Model developer journey as a sequence of hidden states
+* Smooth noisy activity signals
+* identify likely progression paths
 
+### Design (Scoped)
 
+* 5–6 states (Discover → Champion + Dormant)
+* weekly feature inputs
+* Gaussian emissions on aggregated features
+* sticky transitions
 
-### 4. Product Analysis
+### Output
 
-* Aggregate downloads by product
-* Identify:
-
-  * top-performing products
-  * long-tail distribution
-* Analyze trends across time
-
-
-
-### 5. Geographic Analysis
-
-* Segment activity and downloads by:
-
-  * country
-  * region
-* Identify growth and adoption patterns
+* current state probabilities
+* most likely journey path
+* transition probabilities
 
 
 
-## Key Risks and Considerations
+## Key Insight
 
-* Engagement does not equal adoption
-* Activity signals are heterogeneous and require weighting
-* Missing direct linkage between users and downloads
-* Data quality issues (nulls, duplicates, inconsistencies)
-* Open-source usage may not be fully captured
+Engagement does not equal adoption.
+
+* Not all activities reflect real usage
+* High interaction ≠ technical implementation
+
+This project focuses on identifying **signals of progression toward building and deploying**.
 
 
 
@@ -243,35 +224,34 @@ Approach:
 
 ### Setup
 
-Ensure your directory contains a `Data/` folder with all CSV files.
-
-Install dependencies:
-
 ```bash
 pip install -r requirements.txt
 ```
 
-
-
 ### Build Database
 
-Open:
+Run:
 
 ```
 Creating_duckDB.ipynb
+Cleaning.ipynb
 ```
 
-Run all cells to:
-
-* ingest raw data
-* create clean tables
-* persist database
-
-
-
-### Connect to Database
+### Connect
 
 ```python
 import duckdb
 con = duckdb.connect("developer_project.duckdb")
 ```
+
+
+
+## Guiding Principle
+
+Keep the system simple and scalable:
+
+* Use **2 labels per user** (Persona + Journey State)
+* Build features in DuckDB
+* Use models (like HMM) as enhancements, not dependencies
+
+
