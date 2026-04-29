@@ -1,300 +1,790 @@
-# Developer Persona & Journey Analysis (Final Project Plan with HMM Extension)
+# NVIDIA Developer Journey & Persona Intelligence Framework (Detailed + HMM Extension)
 
-## Overview
+## Objective
+The goal of this project is to move beyond simple activity counts and build a dynamic, behavior-driven framework that explains:
 
-This project analyzes how developers engage with NVIDIA’s ecosystem and how that engagement evolves into meaningful technical usage.
+- who developers are (persona / lane)
+- where they are in their journey (stage)
+- how they are progressing over time (trajectory)
+- what their most likely next state is
 
-We build a **two-layer system**:
+This directly supports NVIDIA’s business objective of understanding whether engagement translates into real technology adoption, not just higher interaction counts.
 
-* **Persona (What they build)** → stable
-* **Journey State (Where they are)** → dynamic
 
-We implement:
+## 1. Problem Statement
 
-1. A **simple, interpretable framework** (core deliverable)
-2. A **Hidden Markov Model (HMM)** to model developer journeys over time (advanced extension)
+A static activity snapshot is not enough to explain developer behavior.
 
+For example, two developers may each have five Build-related activities, but one may have completed all of them last year and gone inactive, while the other may be actively building right now. In a static summary, they look similar. In reality, they are in very different lifecycle positions.
 
+This project addresses three gaps:
 
-## Objectives
+1. **Identity gap**  
+   We do not just want to know what activities happened. We want to know what kind of developer this is.
 
-* Segment developers by **technical persona**
-* Track **journey progression** over time
-* Identify **conversion paths and drop-offs**
-* Understand how engagement relates to **real usage signals**
-* Build a **repeatable, scalable analytics framework**
-* Evaluate whether **sequence models (HMMs)** improve journey modeling
+2. **Journey gap**  
+   We do not just want counts. We want to know whether the developer is discovering, learning, evaluating, building, or advocating.
 
+3. **Time gap**  
+   We do not just want a snapshot. We want to know whether the developer is progressing, stalling, regressing, or re-engaging.
 
 
-## Core Framework
+## 2. Solution Overview
 
-### 1. Persona (Stable)
+We build a multi-layer developer intelligence system with four connected layers:
 
-Each developer is assigned one dominant lane:
+### Layer 1: Persona / Developer Lane
+Defines the developer’s main technical interest area.
 
-* CUDA / Accelerated Computing
-* GenAI / Inference & APIs
-* Robotics / Edge AI
-* Simulation / Omniverse
-* Learning / Community
+### Layer 2: Journey Stage
+Defines where the developer sits in the adoption lifecycle.
 
+### Layer 3: Time-Based Modeling
+Defines how the developer moves across stages over 30, 90, and 180-day windows.
 
+### Layer 4: HMM Extension
+Uses Hidden Markov Models to infer hidden journey states from noisy activity patterns over time.
 
-### 2. Journey State (Dynamic)
+Together, these layers allow us to move from simple activity reporting to a dynamic behavioral model of the developer lifecycle.
 
-Each developer is assigned one current state:
 
-* Discover
-* Learn
-* Evaluate
-* Build
-* Champion
+## 3. Persona Modeling (Developer Identity)
 
-This is first implemented using **rule-based logic**.
+### 3.1 Goal
 
+The persona layer identifies what kind of developer a user most likely is based on their activity patterns.
 
+### 3.2 Persona Categories
 
-## Data Sources
+Each activity is mapped into one persona category:
 
-* **Contacts** → developer profile, account, industry
-* **Activities** → engagement events
-* **SDK Downloads** → aggregate market context (not user-level)
+- CUDA / Accelerated Computing
+- GenAI / Inference & APIs
+- Robotics / Edge AI
+- Simulation / Omniverse
+- Learning / Community
 
+### 3.3 Activity-to-Persona Mapping
 
+We use fields such as:
 
-## Pipeline Architecture
+- `activity`
+- `activity_name`
+- `filepath`
 
-### Layer 1: Clean Data
+to assign each activity to a persona.
 
-* `contact_clean`
-* `activity_clean`
+Examples:
 
+- `NGC Downloads` + filepath contains Isaac -> Robotics
+- `DLI Training` + activity name contains LLM -> GenAI
+- `Webinars` + activity name contains CUDA -> CUDA
+- `Forum Contributions` -> Learning / Community
 
+### 3.4 Developer-Level Scoring
 
-### Layer 2: Activity Ontology (Critical Step)
+After mapping each activity row to a persona, we aggregate to the developer level:
 
-Create:
+```sql
+SELECT
+    dev_contact,
+    COUNT_IF(persona = 'CUDA') AS cuda_score,
+    COUNT_IF(persona = 'GenAI') AS genai_score,
+    COUNT_IF(persona = 'Robotics') AS robotics_score,
+    COUNT_IF(persona = 'Simulation') AS simulation_score,
+    COUNT_IF(persona = 'Learning') AS learning_score
+FROM activity_persona_tagged
+GROUP BY dev_contact;
+```
 
-## `activity_ontology_v1`
+### 3.5 Normalization
 
-Each activity is mapped to:
+Because highly active users can dominate raw counts, we normalize persona scores:
 
-* persona lane
-* journey signal (Discover → Champion)
-* effort level (optional)
+```sql
+normalized_persona_score = persona_count / total_persona_activities
+```
 
+This helps distinguish true interest from simple activity volume.
 
+### 3.6 Persona Assignment
 
-### Layer 3: Developer Feature Tables
+We assign:
 
-Create:
+- **Primary persona** = highest normalized score
+- **Secondary persona** = second highest score
+- **Confidence** = strength of top score relative to others
 
-## `dev_weekly_features_v1`
+This makes the persona layer interpretable, scalable, and actionable.
 
-* One row per developer per time window (weekly or 30-day)
-* Includes:
 
-  * activity counts (by type)
-  * learning vs build signals
-  * recency
-  * diversity
-  * activity_score (as one feature, not the definition)
+## 4. Journey Stage Modeling (Lifecycle Position)
 
+### 4.1 Goal
 
+The journey stage layer identifies where the developer is in the adoption funnel.
 
-### Layer 4: Core Segmentation (Baseline System)
+### 4.2 Journey Stages
 
-Create:
+Each activity is mapped to one of the following stages:
 
-## `dev_profile_v1`
+- Discover
+- Learn
+- Evaluate
+- Build
+- Champion
 
-* dominant persona
-* current journey state (rule-based)
+### 4.3 Current Implementation
 
-Also create:
+This is already supported by the activity ontology:
 
-* transition tables (30 → 90 → 180 days)
+```sql
+SELECT
+    af.*,
+    aje.journey_stage,
+    aje.effort
+FROM activity_final af
+JOIN activity_journey_effort aje
+    ON af.activity = aje.activity;
+```
 
+### 4.4 What This Enables
 
+With journey tagging in place, we can already analyze:
 
-### Layer 5: Enrichment
+- stage reach
+- funnel shape
+- stage co-occurrence
+- temporal ordering
+- entry points
+- highest stage reached
+- time to stage
+- champion vs non-champion behavior
 
-Join with `contact_clean` to analyze:
+This provides the core lifecycle framework before introducing probabilistic modeling.
 
-* industry
-* geography
-* account behavior
 
+## 5. Time-Based Behavioral Modeling
 
+### 5.1 Why Time Matters
 
-## Advanced Layer: Hidden Markov Model (HMM)
+Without time, the journey is only a bucket. With time, it becomes a path.
 
-### Purpose
+Time-based analysis allows us to answer:
 
-Model developer journey as a **sequence of hidden states** instead of static labels.
+- Is the developer progressing?
+- Are they stable?
+- Did they regress?
+- Did they churn?
+- Did they re-engage?
 
+### 5.2 Cumulative Windows
 
+We use cumulative windows:
 
-### HMM Design (Scoped)
+- 30 days -> current behavior
+- 90 days -> recent trajectory
+- 180 days -> historical context
 
-We implement a **single HMM (not mixture)**:
+These windows are cumulative rather than non-overlapping, so the 90-day window includes everything in the 30-day window, and the 180-day window includes everything in the 90-day window.
 
-* **States (5–6 max):**
+This makes state assignment easier to interpret and operationalize.
 
-  * Discover
-  * Learn
-  * Evaluate
-  * Build
-  * Champion
-  * Dormant (optional)
+### 5.3 Features Per Developer Per Window
 
-* **Inputs:**
+For each developer and each window, we compute:
 
-  * weekly feature vectors from `dev_weekly_features_v1`
+#### Stage Features
+- `discover_count`
+- `learn_count`
+- `evaluate_count`
+- `build_count`
+- `champion_count`
 
-* **Emissions:**
+#### Score Features
+- `discover_score`
+- `learn_score`
+- `evaluate_score`
+- `build_score`
+- `champion_score`
 
-  * transformed activity features (log counts, flags)
+#### Effort Features
+- `low_effort_count`
+- `medium_effort_count`
+- `high_effort_count`
 
-* **Transitions:**
+#### Volume and Breadth Features
+- `total_activities`
+- `unique_activity_types`
+- `unique_active_days`
 
-  * “sticky” (developers tend to stay in same state)
-  * mostly forward progression
-  * allow drop-off to dormant
+#### Recency
+- `days_since_last_activity`
 
 
+## 6. State Assignment Across Windows
 
-### Outputs
+### 6.1 Goal
 
-Create:
+We convert per-window behavior into operational lifecycle labels.
 
-## `dev_journey_hmm_v1`
+### 6.2 Output States
 
-For each developer:
+For each developer, assign:
 
-* current state (most likely)
-* state probabilities
-* most likely journey path (Viterbi)
-* transition probabilities
-* time spent in each state
+- `state_30d`
+- `state_90d`
+- `state_180d`
 
+If there is no activity in a window, the developer is labeled:
 
+- `Dormant`
 
-## Comparison: Baseline vs HMM
+### 6.3 Example Threshold Logic
 
-We evaluate:
+```sql
+CASE
+    WHEN champion_count >= 1 THEN 'Champion'
+    WHEN build_count >= 2 THEN 'Build'
+    WHEN evaluate_count >= 2 THEN 'Evaluate'
+    WHEN learn_count >= 2 THEN 'Learn'
+    WHEN discover_count >= 1 THEN 'Discover'
+    ELSE 'Dormant'
+END
+```
 
-* Does HMM produce **more stable states**?
-* Does it better predict:
+The exact threshold logic may evolve, but the structure remains the same.
 
-  * future engagement?
-  * movement to Build?
-* Does it reveal **hidden journey patterns**?
 
+## 7. Transition and Trajectory Analysis
 
+### 7.1 Transition Analysis
 
-## Key Analyses
+Compare `state_90d` to `state_30d` to identify:
 
-### 1. Journey Progression
+- Progressed
+- Stable
+- Regressed
+- Activated
+- Churned
 
-* Discover → Learn → Evaluate → Build
-* conversion rates between stages
+### 7.2 Rank Mapping
 
+```text
+Dormant = 0
+Discover = 1
+Learn = 2
+Evaluate = 3
+Build = 4
+Champion = 5
+```
 
+### 7.3 Transition Logic
 
-### 2. Drop-off Analysis
+```sql
+CASE
+    WHEN state_30d_rank > state_90d_rank THEN 'Progressed'
+    WHEN state_30d_rank = state_90d_rank THEN 'Stable'
+    WHEN state_30d_rank < state_90d_rank THEN 'Regressed'
+END
+```
 
-* where users stall
-* time spent in each stage
+### 7.4 Trajectory Analysis
 
+Using the full sequence `state_180d -> state_90d -> state_30d`, classify developers into patterns such as:
 
+- Consistent progression
+- Plateaued
+- Recently accelerated
+- Fading
+- Churning
+- Re-engaged
+- Newly dormant
 
-### 3. Persona Differences
+This gives a richer behavioral story than a single-stage label.
 
-* which personas reach Build fastest
-* which produce Champions
 
+## 8. Where Hidden Markov Models Fit
 
+## 8.1 Why HMMs Make Sense Here
 
-### 4. Activity Impact
+Yes, we can absolutely continue this project using HMMs, and it follows the same logic as the rest of the framework.
 
-* which activities correlate with progression
-* learning vs building signals
+HMMs are a natural extension because journey stage is not directly observed. What we observe are noisy activity signals:
 
+- webinars
+- training
+- forum activity
+- downloads
+- hosted API usage
+- events
+- memberships
+- feedback
+- campaign touches
 
+The hidden variable is the developer’s true journey state.
 
-### 5. HMM Insights (Advanced)
+That is exactly the kind of problem HMMs are built for.
 
-* hidden journey paths
-* re-engagement patterns
-* state probabilities vs hard labels
+### 8.2 Intuition
 
+Observed behavior:
+- attended webinar
+- viewed docs
+- took training
+- returned to forum
+- used hosted API
+- then went inactive
 
+Hidden state sequence:
+- Discover
+- Learn
+- Evaluate
+- Prototype
+- Build
+- Dormant
 
-## Team Structure
+The HMM learns:
 
-### Track 1: Data Engineering
+1. **Emission patterns**  
+   What activity patterns are typical of each hidden state.
 
-* cleaning
-* ontology mapping
-* feature tables
-* validation
+2. **Transition patterns**  
+   How developers tend to move from one hidden state to another over time.
 
+This allows us to say things like:
 
+- 68% probability developer is currently in Evaluate
+- 22% probability they are in Prototype
+- most likely next state is Build
 
-### Track 2: Core Segmentation 
+That is much more powerful than a rule-based stage label alone.
 
-* persona assignment
-* journey state rules
-* transition analysis
 
+## 9. Recommended HMM Design
 
+### 9.1 Key Modeling Principle
 
-### Track 3: HMM Modeling
+Do not use one single flat HMM to model everything at once unless the data is extremely large.
 
-* sequence construction
-* model training
-* evaluation vs baseline
+A better design is a **two-level structure**:
 
+### Level 1: Developer Lane
+A slower-moving latent variable that represents the technical lane:
 
+- CUDA / accelerated computing
+- GenAI / inference / API-first
+- Robotics / edge
+- Simulation / digital twin
+- Community / learning-first
+- Other / mixed
 
-### Track 4: Insights & Reporting 
+### Level 2: Journey Stage
+A time-varying latent state within each lane:
 
-* visualization
-* storytelling
-* final deliverables
+- Dormant
+- Discover
+- Learn
+- Evaluate
+- Prototype
+- Build
+- Advocate / Champion
 
+This gives a **mixture of HMMs**.
 
+### 9.2 Formal Setup
 
-## Key Design Principles
+For developer `i`:
 
-* Keep segmentation **simple and interpretable**
-* Use HMM as an **enhancement, not replacement**
-* Avoid over-granularity
-* Separate:
+- `L_i` = hidden lane
+- `Z_i,t` = hidden journey state at time `t`
+- `X_i,t` = observed activity features at time `t`
 
-  * labeling (persona + state)
-  * modeling (features, HMM)
-  * decision-making (insights)
+Formally:
 
+```text
+L_i ~ Categorical(pi)
 
+Z_i,1 | L_i = k ~ Categorical(alpha_k)
 
-## Expected Outcomes
+Z_i,t | Z_i,t-1, L_i = k ~ Categorical(A_k)
 
-* Clear developer personas across NVIDIA ecosystem
-* Interpretable journey stages
-* Measured progression and drop-offs
-* Identification of high-value behaviors
-* Prototype sequence model (HMM) for deeper insights
-* Scalable framework for future analytics
+X_i,t | Z_i,t = s, L_i = k ~ Emission(theta_k,s)
+```
 
+Interpretation:
 
+- each developer belongs probabilistically to a lane
+- each lane has its own transition behavior
+- each hidden state emits a characteristic activity pattern
 
-## Guiding Principle
+This is more realistic than assuming all developers follow the same journey dynamics.
 
-Start simple, then layer complexity:
 
-> Build a system that works → then test if HMM makes it better
+## 10. Why We Need an Ontology Before the HMM
 
+We should not feed raw activity logs directly into the HMM.
 
+Raw logs are too sparse, too noisy, and too dependent on source-specific naming.
+
+Before the HMM, we need an **activity ontology** that converts raw rows into stable semantic signals.
+
+### 10.1 Semantic Buckets
+
+#### Intent Bucket
+- awareness
+- learning
+- evaluation
+- implementation
+- community
+- advocacy
+
+#### Effort Bucket
+- passive
+- moderate
+- high-effort
+
+#### Lane Bucket
+- accelerated computing
+- GenAI / inference
+- robotics / edge
+- simulation
+- general platform / community
+
+#### Interaction Mode
+- live event
+- async content
+- docs / asset
+- forum
+- membership
+- application
+- API / hands-on
+- feedback
+
+This ontology becomes the feature foundation for the HMM.
+
+Without this step, the HMM may learn campaign artifacts instead of genuine journey states.
+
+
+## 11. Sequence Construction for the HMM
+
+### 11.1 Time Unit
+
+Use regular time windows, not raw timestamps.
+
+Recommended:
+- weekly windows
+- or biweekly windows
+
+Weekly is usually the better first pass.
+
+### 11.2 Sequence Table
+
+Create one row per developer per week:
+
+- `developer_id`
+- `week_start`
+- engineered feature vector for that week
+
+### 11.3 Example Weekly Features
+
+```text
+webinar_count
+dli_selfpaced_count
+dli_instructor_count
+docs_asset_count
+forum_contrib_count
+program_membership_flag
+hosted_api_flag
+hackathon_count
+high_effort_count
+activity_score_sum
+unique_activity_types
+days_since_last_activity
+campaign_touch_count
+lane_cuda_score
+lane_genai_score
+lane_robotics_score
+lane_simulation_score
+```
+
+### 11.4 Important Feature Engineering Rules
+
+- use `log1p` transforms for skewed counts
+- include zero-activity weeks
+- normalize for tenure where needed
+- keep missing values as explicit unknowns rather than dropping rows
+
+This makes the model more stable and better aligned with the real lifecycle.
+
+
+## 12. Using Contact Data as Lane Priors
+
+The contact table should not just be used for descriptive analysis. It should help guide lane assignment.
+
+Useful fields include:
+
+- `development_areas`
+- `fields_of_interest`
+- `industry_segment_vertical`
+- `program_application_source`
+- `organization_english_name`
+- `organization_website`
+- `account_id`
+- `created_date`
+- `first_activity_date`
+- `devzone_last_login_date`
+- geography fields
+
+### Example Prior Logic
+
+- if `development_areas` contains robotics-related signals, increase robotics lane prior
+- if profile interests and activity both suggest AI / ML, increase GenAI lane prior
+- if organization context suggests simulation / industrial use, increase simulation lane prior
+
+So the lane assignment becomes:
+
+```text
+P(lane | contact features, activity sequence)
+```
+
+This is stronger than activity-only assignment.
+
+
+## 13. Emission Model Choice
+
+### 13.1 Recommended First Pass
+
+Start with a **Gaussian HMM** on transformed weekly features.
+
+Why:
+- easier to fit
+- works well on summarized weekly features
+- interpretable for a first implementation
+
+### 13.2 What the Model Learns
+
+For each hidden state, it learns:
+
+- a mean feature profile
+- covariance across features
+
+Examples:
+
+- a **Learning** state may show high training and async content, low technical depth
+- an **Evaluate** state may show repeated docs, events, and product exploration
+- a **Build** state may show hosted API usage, repeated technical assets, and strong return cadence
+- an **Advocate** state may show forum participation, event speaking, and community engagement
+
+Later, the project could evolve into count-based or custom emission models if needed.
+
+
+## 14. Transition Constraints
+
+A plain HMM may flip states too quickly and unrealistically.
+
+To make the model reflect a real developer journey, we should use a **sticky** structure:
+
+- high self-transition probabilities
+- mostly forward movement
+- some allowed backward movement
+- dormancy possible from many states
+- reactivation allowed from Dormant to Learn or Evaluate
+
+Example structure:
+
+```text
+Dormant -> Discover -> Learn -> Evaluate -> Prototype -> Build -> Advocate
+   ^           ^         ^         ^           ^          |
+   |-----------|---------|---------|-----------|----------|
+```
+
+This prevents noisy week-to-week label changes that do not reflect real behavior shifts.
+
+
+## 15. Lane Assignment Options
+
+### Option A: Mixture of HMMs (Recommended)
+
+Each lane has its own HMM.
+
+Output for one developer:
+
+- `P(GenAI lane) = 0.74`
+- `P(Robotics lane) = 0.18`
+- `P(CUDA lane) = 0.08`
+
+Then within the top lane:
+
+- `P(Current State = Evaluate) = 0.61`
+- `P(Current State = Prototype) = 0.27`
+
+This is the cleanest interpretation.
+
+### Option B: One Large Combined HMM
+
+State space becomes:
+
+- `CUDA_Learn`
+- `CUDA_Evaluate`
+- `CUDA_Build`
+- `Robotics_Learn`
+- `GenAI_Build`
+- etc.
+
+This is possible, but usually harder to interpret and easier to overfit.
+
+So for this project, the mixture-of-HMMs design is the better extension.
+
+
+## 16. HMM Outputs
+
+For each developer, the HMM can produce:
+
+- top lane
+- lane probability distribution
+- current hidden journey state
+- current state probability
+- state probabilities over time
+- Viterbi path for most likely journey sequence
+- next-state probability distribution
+- time spent in state
+- confidence score
+
+### Example Final Output Table
+
+```text
+developer_id
+lane_top1
+lane_top1_prob
+lane_top2
+current_stage
+current_stage_prob
+stage_probs_json
+most_likely_path_last_12_weeks
+next_state_probs
+time_in_state
+confidence_score
+```
+
+This turns the HMM into an operational output, not just a modeling exercise.
+
+
+## 17. How the HMM Extends the Existing Project
+
+The HMM does not replace the current project. It extends it.
+
+### Current Framework
+- rule-based persona assignment
+- rule-based stage tagging
+- time-window state assignment
+- transition analysis
+- trajectory analysis
+
+### HMM Extension
+- probabilistic lane inference
+- probabilistic journey state inference
+- hidden-state smoothing across time
+- next-state prediction
+- richer identification of churn, reactivation, and stage ambiguity
+
+So the project becomes stronger in two ways:
+
+1. **Interpretability** from the rule-based framework
+2. **Probabilistic depth** from the HMM framework
+
+That combination is actually ideal for a project like this.
+
+
+## 18. Recommended Project Architecture
+
+### Base Tables
+- `activity_final`
+- `contact_final`
+
+### New Derived Tables
+- `activity_ontology_v1`
+- `activity_persona_tagged_v1`
+- `dev_features_30d_v1`
+- `dev_features_90d_v1`
+- `dev_features_180d_v1`
+- `dev_weekly_sequence_v1`
+- `lane_prior_v1`
+
+### HMM Output Tables
+- `developer_lane_probs_v1`
+- `developer_current_stage_v1`
+- `dev_journey_hmm_v1`
+
+This fits the project’s versioned, reproducible table-building style.
+
+
+## 19. Validation Strategy
+
+A good HMM should not just produce nice labels. It should improve prediction and business usefulness.
+
+### 19.1 Predictive Validity
+Does the inferred current state predict:
+- future technical activity
+- retention
+- deeper adoption
+- transition to Build or Champion
+
+### 19.2 Interpretability
+Do the learned states make sense when compared with real developer activity histories?
+
+### 19.3 Stability
+Does the same developer stay in a similar state unless their behavior truly changes?
+
+### 19.4 Business Value
+Can NVIDIA use the inferred state to trigger better interventions, messaging, or support?
+
+
+## 20. Suggested Roadmap
+
+### Phase 1
+Finalize:
+- persona mapping
+- journey stage ontology
+- 30 / 90 / 180-day feature tables
+- transition and trajectory analysis
+
+### Phase 2
+Build HMM-ready weekly sequences:
+- one row per developer per week
+- transformed activity features
+- lane prior features from contacts
+
+### Phase 3
+Fit HMM prototype:
+- 4 to 6 lanes
+- 5 to 7 hidden journey states per lane
+- sticky transitions
+- Gaussian emissions on transformed features
+
+### Phase 4
+Materialize outputs and compare against the rule-based framework
+
+This creates a clear story for how the project evolves from descriptive analytics into probabilistic lifecycle modeling.
+
+
+## 21. Final Summary
+
+Yes, this project can absolutely continue in the same format and be extended with Hidden Markov Models.
+
+In fact, the HMM idea fits naturally into the framework because:
+
+- persona gives us the likely developer lane
+- stage mapping gives us interpretable behavioral labels
+- time windows show directional movement
+- HMMs infer the hidden journey state behind the noisy observed actions
+
+So the final project becomes a complete developer intelligence framework that answers:
+
+- What kind of developer is this?
+- Where are they in the journey?
+- How have they moved over time?
+- What state are they most likely in right now?
+- What state are they likely to move to next?
+
+That is a strong continuation of the current project, not a separate idea.
