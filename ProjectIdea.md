@@ -163,6 +163,53 @@ With journey tagging in place, we can already analyze:
 
 This provides the core lifecycle framework before introducing probabilistic modeling.
 
+## 4.5 Dormant State (Critical Lifecycle Component)
+
+### Why Dormant Matters
+
+Dormant is not just "no activity." It represents:
+- churn risk
+- disengagement after evaluation or build
+- gaps in the developer experience
+
+In large developer ecosystems, Dormant is often:
+- the largest segment
+- the biggest source of lost potential
+- the most actionable group for re-engagement
+
+
+
+### Definition
+
+A developer is labeled **Dormant** in a given time window if:
+
+- No activity is observed in that window
+
+Example:
+- No activity in last 30 days → Dormant (current state)
+- Activity in 90-day but none in 30-day → churned
+
+
+
+### Why This is Important
+
+Without Dormant:
+- Old Build users appear "active"
+- Funnel metrics are misleading
+- Churn is invisible
+
+With Dormant:
+- lifecycle becomes realistic
+- transitions become actionable
+- re-engagement opportunities become measurable
+
+### Transition Types (Updated)
+
+- Progressed → moved to higher stage
+- Stable → same stage
+- Regressed → moved to lower stage
+- Activated → Dormant → Active
+- Churned → Active → Dormant
 
 ## 5. Time-Based Behavioral Modeling
 
@@ -596,7 +643,7 @@ Example structure:
 ```text
 Dormant -> Discover -> Learn -> Evaluate -> Prototype -> Build -> Advocate
    ^           ^         ^         ^           ^          |
-   |-----------|---------|---------|-----------|----------|
+   |--|||--|-|
 ```
 
 This prevents noisy week-to-week label changes that do not reflect real behavior shifts.
@@ -738,53 +785,3 @@ Does the same developer stay in a similar state unless their behavior truly chan
 
 ### 19.4 Business Value
 Can NVIDIA use the inferred state to trigger better interventions, messaging, or support?
-
-
-## 20. Suggested Roadmap
-
-### Phase 1
-Finalize:
-- persona mapping
-- journey stage ontology
-- 30 / 90 / 180-day feature tables
-- transition and trajectory analysis
-
-### Phase 2
-Build HMM-ready weekly sequences:
-- one row per developer per week
-- transformed activity features
-- lane prior features from contacts
-
-### Phase 3
-Fit HMM prototype:
-- 4 to 6 lanes
-- 5 to 7 hidden journey states per lane
-- sticky transitions
-- Gaussian emissions on transformed features
-
-### Phase 4
-Materialize outputs and compare against the rule-based framework
-
-This creates a clear story for how the project evolves from descriptive analytics into probabilistic lifecycle modeling.
-
-
-## 21. Final Summary
-
-Yes, this project can absolutely continue in the same format and be extended with Hidden Markov Models.
-
-In fact, the HMM idea fits naturally into the framework because:
-
-- persona gives us the likely developer lane
-- stage mapping gives us interpretable behavioral labels
-- time windows show directional movement
-- HMMs infer the hidden journey state behind the noisy observed actions
-
-So the final project becomes a complete developer intelligence framework that answers:
-
-- What kind of developer is this?
-- Where are they in the journey?
-- How have they moved over time?
-- What state are they most likely in right now?
-- What state are they likely to move to next?
-
-That is a strong continuation of the current project, not a separate idea.
