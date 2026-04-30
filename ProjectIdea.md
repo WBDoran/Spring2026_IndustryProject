@@ -642,8 +642,6 @@ Example structure:
 
 ```text
 Dormant -> Discover -> Learn -> Evaluate -> Prototype -> Build -> Advocate
-   ^           ^         ^         ^           ^          |
-   |--|||--|-|
 ```
 
 This prevents noisy week-to-week label changes that do not reflect real behavior shifts.
@@ -785,3 +783,237 @@ Does the same developer stay in a similar state unless their behavior truly chan
 
 ### 19.4 Business Value
 Can NVIDIA use the inferred state to trigger better interventions, messaging, or support?
+
+
+## 20. Behavioral Segmentation using UMAP + HDBSCAN
+
+### 20.1 Motivation
+
+While the HMM identifies **where a developer is in their journey**, it does not fully capture:
+
+- behavioral similarity across developers
+- different types of developers within the same journey stage
+- natural groupings that are not predefined
+
+To address this, we introduce a complementary modeling layer using:
+
+- UMAP (dimensionality reduction)
+- HDBSCAN (density-based clustering)
+
+Together, these techniques identify **behavioral segments ("lanes")** directly from the data.
+
+
+
+### 20.2 Role in the Overall Framework
+
+This layer answers a different question than HMM:
+
+- HMM → “Where is the developer in the journey?”
+- UMAP + HDBSCAN → “Who behaves similarly to this developer?”
+
+As shown in the modeling framework:
+
+- HMM produces **current journey state**
+- UMAP + HDBSCAN produces **behavioral segment / lane**
+
+Together:
+> Behavior + Journey = Full developer understanding :contentReference[oaicite:1]{index=1}
+
+
+
+### 20.3 Why UMAP
+
+UMAP is used to reduce high-dimensional feature space into a lower-dimensional representation.
+
+Our dataset is:
+- high-dimensional (many behavioral features)
+- sparse (many zero-activity users)
+- non-linear (complex relationships between behaviors)
+
+UMAP:
+- preserves local structure (similar developers stay close)
+- captures non-linear relationships
+- enables visualization in 2D or 3D
+
+As described in the project materials:
+- similar developers are positioned closer together
+- complex behavior is organized into structured space :contentReference[oaicite:2]{index=2}
+
+
+
+### 20.4 Why HDBSCAN
+
+After dimensionality reduction, we apply HDBSCAN to identify clusters.
+
+HDBSCAN is chosen because:
+
+- it does not require specifying number of clusters
+- it detects clusters of varying density
+- it naturally identifies noise (outliers)
+
+This is critical because:
+- developer behavior is not evenly distributed
+- some users do not belong to any clear segment
+
+As noted:
+- clusters represent natural behavior groups
+- outliers are explicitly identified as noise :contentReference[oaicite:3]{index=3}
+
+
+
+### 20.5 Input Features for Clustering
+
+UMAP + HDBSCAN operates on the **feature panel**, not sequences.
+
+Input features include:
+
+- activity counts (per type)
+- stage counts (Discover, Learn, Evaluate, Build)
+- effort distribution
+- recency metrics
+- activity diversity (unique types)
+- persona scores
+- time-window features (30d, 90d, 180d)
+
+These are derived from:
+- `dev_features_30d_v1`
+- `dev_features_90d_v1`
+- `dev_features_180d_v1`
+
+
+
+### 20.6 Output: Behavioral Segments
+
+The clustering produces:
+
+- behavioral clusters (lanes)
+- noise points (unclassified users)
+
+Example segments:
+- Explorers
+- Learners
+- Evaluators
+- Active Builders
+- Production Users
+- Community Contributors
+- Dormant / low-engagement users
+
+These segments are **data-driven**, not predefined.
+
+
+
+### 20.7 How This Complements HMM
+
+HMM and clustering serve different but complementary roles:
+
+| Method | Output | Purpose |
+|-|-|--|
+| HMM | Journey State | Lifecycle position |
+| UMAP + HDBSCAN | Behavioral Segment | Developer type |
+
+This enables:
+
+- same stage, different behavior → distinguishable
+- same behavior, different stage → detectable
+
+Example:
+- Two developers in "Evaluate"
+  - one is highly technical → close to Build
+  - one is passive → likely to churn
+
+
+
+### 20.8 Validation and Insight Generation
+
+UMAP is also used as a **validation tool**:
+
+- visualize clusters in 2D
+- confirm separation between segments
+- identify overlaps or ambiguous regions
+- track movement over time
+
+This allows:
+- human validation of clustering results
+- interpretability for stakeholders
+
+As described:
+- UMAP helps visualize developer base
+- tracks movement toward deeper engagement regions :contentReference[oaicite:4]{index=4}
+
+
+
+### 20.9 Integration into Final Outputs
+
+Final developer-level outputs include:
+
+- current journey state (HMM)
+- behavioral segment (HDBSCAN cluster)
+- persona (rule-based)
+- trajectory (time-based)
+
+This produces a **multi-dimensional developer profile**:
+
+```text
+developer_id
+persona
+current_stage
+behavior_cluster
+trajectory_label
+churn_risk
+next_state_prediction
+````
+
+
+
+### 20.10 Business Impact
+
+This combined approach enables NVIDIA to:
+
+* identify distinct developer archetypes
+* personalize engagement strategies
+* detect stuck vs progressing users
+* differentiate high-intent vs low-intent users
+* optimize conversion from Evaluate → Build
+* target reactivation for Dormant users
+
+
+
+### 20.11 Key Insight
+
+HMM alone tells you:
+
+> where the developer is
+
+Clustering alone tells you:
+
+> who the developer is similar to
+
+Together:
+
+> you understand both **position AND behavior**
+
+```
+
+
+
+## 🧠 What you just added (big picture)
+
+Your project now has:
+
+| Layer | Purpose |
+||--|
+| Persona | identity |
+| Journey | lifecycle |
+| Time windows | movement |
+| HMM | hidden state inference |
+| UMAP + HDBSCAN | behavioral segmentation |
+
+👉 This is now a **full-stack behavioral modeling system**
+
+
+
+## One important pushback (so you don’t lose points)
+
+Better:
+UMAP is used for **visual validation and structure discovery**, not statistical validation.
+
