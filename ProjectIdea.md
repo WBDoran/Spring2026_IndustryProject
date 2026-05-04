@@ -996,19 +996,19 @@ Together:
 
 
 
-## 🧠 What you just added (big picture)
+## What you just added (big picture)
 
 Your project now has:
 
 | Layer | Purpose |
-||--|
+|--|--|
 | Persona | identity |
 | Journey | lifecycle |
 | Time windows | movement |
 | HMM | hidden state inference |
 | UMAP + HDBSCAN | behavioral segmentation |
 
-👉 This is now a **full-stack behavioral modeling system**
+This is now a **full-stack behavioral modeling system**
 
 
 
