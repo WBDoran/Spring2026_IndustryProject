@@ -1,60 +1,89 @@
-# NVIDIA Developer Persona, Journey, and Dormancy Analysis
+# NVIDIA Developer Persona, Journey, and Lifecycle Analysis
 
 ## Overview
 
 This project builds a scalable DuckDB-based analytical pipeline to evaluate how NVIDIA developer engagement evolves into meaningful technical usage.
 
-The framework moves beyond a single engagement score and produces an interpretable developer-level profile with four main components:
+The framework moves beyond one generic engagement score and produces an interpretable developer-level profile with five connected components:
 
-* **Persona**: what the developer appears to build or care about
-* **Journey State**: where the developer currently sits in the lifecycle
-* **Dormancy Status**: whether an activated developer is active, at risk, dormant, or unactivated
-* **Trajectory Features**: how the developer changes across time windows and historical periods
+* **Persona**: what the developer appears to build or care about.
+* **Behavior journey stage**: what the developer is currently doing, such as Discover, Learn, Evaluate, Build, or Champion.
+* **Lifecycle status**: whether the developer is Active, At Risk, Dormant, Tourist, or Free Email style low-depth user.
+* **Trajectory and recency features**: how behavior changes across recent non-overlapping windows.
+* **Modeling-ready features**: a clean feature table for clustering, validation, asset impact, cohort profiling, visualization, and recommendations.
 
-The current final notebook is:
+The current primary feature notebook is:
 
 ```text
-FeatureEngineering.ipynb
+FeatureEngineering_v2.ipynb
 ```
 
 The primary final output table is:
 
 ```text
-dev_profile_final_v3
+dev_profile_final_v4
 ```
 
+The main EDA and validation notebook is:
 
+```text
+Combined_EDA_Features.ipynb
+```
 
-## Objectives
+## Business Objective
 
-* Identify developer personas from technical activity patterns.
-* Track journey progression over time from Discover to Champion.
-* Separate genuine users from tourists using an activation gate.
-* Classify activated developers as Active, At_Risk, or Dormant using a survival-based dormancy framework.
-* Create validated 30/90/180-day cumulative feature tables for business interpretation.
-* Create non-cumulative period and weekly features for sequence modeling.
-* Provide a repeatable, scalable feature engineering foundation for segmentation, HMM, and future monitoring.
+NVIDIA's project question is not simply whether developers interact more often. The core question is whether engagement turns into real adoption behavior.
 
+This project answers that by separating:
 
+* passive browsing from meaningful activity
+* learning from evaluation
+* evaluation from building
+* building from advocacy or community contribution
+* dormant activated users from users who never meaningfully activated
+* business-ready descriptive labels from optional advanced modeling outputs
+
+## Current Project Status
+
+### Completed
+
+* DuckDB database setup and raw table loading.
+* Activity, contact, and SDK cleaning workflow.
+* Clean activity and contact feature base tables.
+* Deterministic activity dictionary.
+* Activity ontology with journey signal, effort level, persona hint, and modality.
+* DevZone filepath override logic so DevZone downloads can be treated differently based on file type or path.
+* Developer universe table.
+* Non-overlapping recency windows: `0_30d`, `30_90d`, and `90_180d`.
+* Lifetime developer features.
+* Persona scoring from activity and contact profile evidence.
+* Behavior journey state assignment.
+* Lifecycle overlay, including activation-style user type, max stage reached, and final lifecycle status.
+* Final one-row-per-developer profile table: `dev_profile_final_v4`.
+* Combined EDA and validation notebook for sanity checks, lifecycle distribution, persona diagnostics, and modeling readiness.
+
+### In progress or next
+
+* Validate journey and lifecycle thresholds against sampled developer histories.
+* Refine persona keyword dictionaries based on Unknown and mixed persona distributions.
+* Run UMAP + HDBSCAN clustering on the final feature table.
+* Benchmark clustering against simpler alternatives like KMeans and DBSCAN.
+* Perform asset impact analysis on trainings, webinars, downloads, and downstream behavior.
+* Build stakeholder visuals and dashboards.
+* Turn results into recommendations for moving developers toward deeper adoption.
+* Prototype HMM only after the weekly or sequence-ready features are stable.
 
 ## Data Sources
 
 The project uses three primary datasets:
 
-* `dev_activity.csv`  
-  Developer engagement events, including trainings, webinars, downloads, hosted API usage, events, forums, program memberships, and related interactions.
-
-* `dev_contact.csv`  
-  Developer profile and account-level attributes, including interests, development areas, geography, industry, account information, and profile dates.
-
-* `sdk_download.csv`  
-  Aggregate product/download signals from sources such as PyPI, NGC, DevZone, Hugging Face, DockerHub, GitHub, Conda, and VS Code.
+* `dev_activity.csv`: developer engagement events such as trainings, webinars, downloads, hosted API usage, events, forums, program memberships, and related interactions.
+* `dev_contact.csv`: developer profile and account context such as development areas, interests, geography, industry, account metadata, and profile dates.
+* `sdk_download.csv`: aggregate product/download signals from sources such as PyPI, NGC, DevZone, Hugging Face, DockerHub, GitHub, Conda, and VS Code.
 
 Important limitation:
 
-* SDK downloads are not currently joined into developer-level profiles because they do not provide a reliable user-level key.
-
-
+* SDK downloads are currently treated as aggregate product/download evidence. They should not be merged into developer-level profiles unless a reliable user-level join key is available.
 
 ## Database
 
@@ -67,167 +96,109 @@ developer_project.duckdb
 DuckDB is used because it supports:
 
 * large local analytical workloads
-* reproducible table creation
-* SQL-based validation
-* separation of raw, clean, ontology, feature, and final profile layers
+* SQL-based reproducible transformations
+* validation after each major pipeline layer
+* persistent table outputs for notebooks and downstream teams
 
-
-
-## Pipeline Notebooks
-
-Recommended run order:
+## Recommended Run Order
 
 ```text
 Creating_duckDB.ipynb
 Cleaning.ipynb
-FeatureEngineering.ipynb
+FeatureEngineering_v2.ipynb
+Combined_EDA_Features.ipynb
 ```
 
-Optional exploratory notebooks may include:
+Optional notebooks:
 
 ```text
+CleanDataSanity.ipynb
 EDA_DuckDB.ipynb
+Creating_RandomSample_100000.ipynb
+DropTables.ipynb
 ```
 
+## Current Table Structure
 
-
-## Table Structure
-
-### Raw Layer
+### Raw and clean layers
 
 * `activity_raw`
 * `contact_raw`
 * `sdk_download_raw`
+* `activity_final`
+* `contact_final`
+* `sdk_download_final`
 
-### Clean Layer
+### Feature engineering v2 layers
 
-* `activity_clean`
-* `contact_clean`
-* `sdk_download_clean`
-
-### Enriched Layer
-
-* `activity_enriched_v1`
-
-This joins activity rows to contact metadata while preserving activity-level grain.
-
-### Ontology Layer
-
-* `activity_ontology_v1`
-
-Each activity is tagged with:
-
-* journey signal
-* effort level
-* persona hint
-* modality
-
-### Snapshot Feature Layer
-
-* `dev_features_30d_v1`
-* `dev_features_90d_v1`
-* `dev_features_180d_v1`
-
-These are cumulative windows relative to the latest observed activity date in the dataset.
-
-### Lifetime Persona Layer
-
-* `dev_features_lifetime_v1`
-* `dev_persona_v1`
-
-Persona is built from lifetime activity and contact context, not only recent activity.
-
-### Historical Period Layer
-
-* `dev_30day_period_features_v1`
-* `dev_30day_period_transitions_v1`
-
-These are non-cumulative 30-day periods across the full 2020-2025 observation window.
-
-### Weekly Sequence Layer
-
-* `dev_weekly_features_v1`
-
-This table supports later HMM or sequence modeling.
-
-### Dormancy Layer
-
-* `dev_meaningful_week_v1`
-* `dev_activation_v1`
-* `dev_dormancy_v1`
-
-These tables implement the activation gate and survival-based dormancy framework.
-
-### Final Profile Layer
-
-* `dev_profile_final_v3`
-
-This is the main one-row-per-developer output table.
-
-
+* `activity_base_v2`
+* `contact_one_row_v2`
+* `activity_dictionary_v2`
+* `activity_labeled_v2`
+* `developer_universe_v2`
+* `dev_features_0_30d_v2`
+* `dev_features_30_90d_v2`
+* `dev_features_90_180d_v2`
+* `dev_recency_features_v2`
+* `dev_features_lifetime_v2`
+* `dev_contact_persona_v2`
+* `dev_persona_v2`
+* `dev_journey_state_v2`
+* `dev_profile_final_v4`
 
 ## Core Framework
 
-### 1. Activity Ontology
+### 1. Activity ontology
 
-The ontology translates raw events into behavioral meaning. Each activity receives four tags.
+The ontology translates raw activity events into behavioral meaning.
 
-#### Journey Signal
+Each row in `activity_labeled_v2` receives:
 
-* Discover
-* Learn
-* Evaluate
-* Build
-* Champion
-* Other
+* `journey_signal`: Discover, Learn, Evaluate, Build, Champion, or Other.
+* `effort_level`: Passive, Moderate, High, or Unknown.
+* `persona_hint`: CUDA, GenAI, Robotics, Simulation, Learning_Community, or Other.
+* `modality`: channel or interaction format, such as Download, Event, Training, Hosted API, Community, or Support Feedback.
 
-#### Effort Level
+The current design is deterministic for standard activity names. DevZone Downloads are the exception because they use filepath-based logic. For example, an installer or toolkit filepath is stronger Build evidence than a PDF or documentation filepath.
 
-* Passive
-* Moderate
-* High
-* Unknown
+### 2. Feature windows
 
-#### Persona Hint
+The current v2 pipeline uses non-overlapping recency windows:
+
+* `0_30d`: current behavior.
+* `30_90d`: recent prior behavior.
+* `90_180d`: older comparison window.
+
+This avoids double-counting when comparing recent behavior against earlier behavior.
+
+### 3. Lifetime features
+
+Lifetime features summarize the developer's full observed history. These include:
+
+* total activity count
+* activity score sums and averages
+* unique activity days
+* journey-stage counts
+* effort-level counts
+* modality counts
+* persona evidence
+* lifetime DevZone download count
+* max stage reached
+
+### 4. Persona modeling
+
+Persona identifies the developer's likely technical lane.
+
+Current personas include:
 
 * CUDA
 * GenAI
 * Robotics
 * Simulation
 * Learning_Community
-* Other
+* Unknown or Other
 
-#### Modality
-
-* On Demand
-* Membership
-* Event
-* Communication
-* Training
-* Download
-* Hosted API
-* Cloud Workspace
-* Application
-* Support Feedback
-* Community
-* Other
-
-
-
-### 2. Persona Modeling
-
-Persona identifies what kind of developer the user most likely is.
-
-Personas include:
-
-* CUDA / Accelerated Computing
-* GenAI / Inference and APIs
-* Robotics / Edge AI
-* Simulation / Omniverse
-* Learning / Community
-* Other / Unknown when evidence is insufficient
-
-Persona is built using weighted keyword matching from:
+Persona evidence comes from:
 
 * `activity_name`
 * `filepath`
@@ -236,287 +207,106 @@ Persona is built using weighted keyword matching from:
 * `fields_of_interest`
 * `industry_segment_vertical`
 
-Strong activity/filepath matches receive higher weight than self-selected profile fields.
+Activity and filepath evidence are treated as stronger than profile-only evidence because they represent behavior rather than self-selected interests.
 
-Developer-level outputs include:
+### 5. Behavior journey and lifecycle overlay
 
-* normalized persona scores
-* assigned persona
-* persona confidence
-* confidence tier
-* mixed persona flag
+The pipeline separates behavior from lifecycle.
 
-
-
-### 3. Journey State Modeling
-
-Journey state identifies where the developer is in the adoption lifecycle.
-
-States:
-
-* Discover
-* Learn
-* Evaluate
-* Build
-* Champion
-* Dormant
-
-Journey states are assigned over cumulative 30/90/180-day windows. These windows are used because they are easy to interpret for business stakeholders:
-
-* 30 days = current behavior
-* 90 days = recent trajectory
-* 180 days = historical context
-
-
-
-### 4. Time Window Strategy
-
-The project uses both cumulative and non-cumulative windows.
-
-#### Cumulative Windows
-
-Used for current business outputs:
-
-* `dev_features_30d_v1`
-* `dev_features_90d_v1`
-* `dev_features_180d_v1`
-
-Example:
+Behavior journey answers:
 
 ```text
-90-day window includes the 30-day window.
-180-day window includes the 90-day window.
+What is the developer doing?
 ```
 
-Use cases:
-
-* current journey state
-* snapshot profile
-* transition summaries
-* targeting and reporting
-
-#### Non-Cumulative Windows
-
-Used for historical sequence analysis:
-
-* `dev_30day_period_features_v1`
-* `dev_weekly_features_v1`
-
-Example:
+Lifecycle answers:
 
 ```text
-0-30 days, 31-60 days, 61-90 days, etc.
+How should we interpret the developer's current engagement condition?
 ```
 
-Use cases:
+Current lifecycle-style fields include:
 
-* period-to-period movement
-* HMM input
-* time-series behavior analysis
-* historical trajectory review
+* `user_type`
+* `max_stage_reached`
+* `final_lifecycle_status`
+* recent activity and dormancy indicators
+* behavior journey stage fields
 
+This separation prevents the project from calling a developer dormant just because they had low recent activity if they never meaningfully activated in the first place.
 
+## Final Output: `dev_profile_final_v4`
 
-## Survival-Based Dormancy Framework
-
-The dormancy framework separates developers into meaningful lifecycle statuses instead of using raw inactivity alone.
-
-### Step 1: Meaningful Active Week
-
-A developer-week is meaningful if any of the following are true:
-
-* any Build or Champion activity occurred
-* any Moderate or High effort activity occurred
-* at least two distinct days of low-effort Learn or Evaluate activity occurred in the same week
-
-This filters out passive one-click noise.
-
-### Step 2: Activation Gate
-
-A developer is activated if either is true:
-
-* they had at least one Build or Champion event ever
-* they accumulated at least two meaningful active weeks within their first 90 days after first activity
-
-Developers who do not pass this gate are classified as `Unactivated` rather than dormant.
-
-### Step 3: Days Since Last Meaningful Active Week
-
-For activated developers, the pipeline computes:
-
-```text
-days_since_last_meaningful_week
-```
-
-This uses the latest observed activity date in the dataset as the reference date.
-
-### Step 4: Dormancy Status
-
-Current thresholds:
-
-* `Active`: fewer than 56 days since last meaningful active week
-* `At_Risk`: 56 to 83 days
-* `Dormant`: 84 or more days
-* `Unactivated`: did not pass activation gate
-
-The 56-day and 84-day cutoffs are based on the Kaplan-Meier survival framing used in the dormancy analysis.
-
-### Step 5: Validation
-
-The framework is validated by checking whether future return rates follow the expected order:
-
-```text
-Active return rate > At_Risk return rate > Dormant return rate
-```
-
-
-
-## Final Output: `dev_profile_final_v3`
-
-The final output is one row per developer.
+The final profile is one row per developer.
 
 It combines:
 
 * developer ID
-* current journey state
-* 30/90/180-day journey states
-* lifetime persona
-* persona confidence tier
-* mixed persona flag
-* transition label
-* activation status
-* dormancy status
-* days since last meaningful active week
-* activity volume and recency features
-* journey, effort, and persona scores
+* contact metadata
+* persona and persona confidence
+* recent window features
+* lifetime features
+* current behavior journey stage
+* lifecycle overlay fields
+* activation or user-type logic
+* max stage reached
+* final lifecycle status
 
 This table is intended for:
 
-* dashboarding
-* segmentation
 * stakeholder review
-* targeting analysis
-* input to clustering or HMM extensions
+* cohort profiling
+* asset impact analysis
+* clustering
+* validation and benchmarking
+* dashboarding
+* recommendations
 
+## Team Division and How the Pieces Fit
 
+The team structure makes sense if each team owns a different layer of the final story while using the same `dev_profile_final_v4` foundation.
 
-## Validation Strategy
+| Team | Main question | Primary inputs | Expected output |
+|---|---|---|---|
+| Modeling Team | What natural behavior groups exist? | `dev_profile_final_v4`, selected scaled features | UMAP visualization, HDBSCAN clusters, cluster descriptions |
+| Model Validation and Benchmarking Team | Are the clusters reliable and better than alternatives? | Model outputs, feature matrix | Stability checks, silhouette or density metrics, KMeans/DBSCAN comparison |
+| Asset Impact Analysis Team | Which assets are associated with deeper engagement? | `activity_labeled_v2`, recency windows, final profile | Pre/post analysis, asset impact summary, downstream movement patterns |
+| Demographic and Cohort Profiling Team | Who is in each cohort or cluster? | Contact fields, persona, lifecycle, clusters | Segment profiles by geography, industry, account type, persona |
+| Recommendations Team | What should NVIDIA do with each segment? | Outputs from all analytical teams | Action plan by persona, stage, lifecycle, and cluster |
+| Visualization Team | How do stakeholders understand the results quickly? | Final tables and team outputs | Dashboards, charts, final presentation visuals |
+| Final Integration and QA Team | Does the whole story hold together? | All notebooks, outputs, documentation | Final QA, consistent terminology, cleaned narrative, reproducible docs |
 
-Validation is built into the pipeline after major steps.
-
-Key validation checks include:
-
-* row count checks before and after joins
-* duplicate checks
-* join coverage checks
-* ontology coverage checks
-* persona distribution checks
-* cumulative-window monotonicity checks
-* null checks for final outputs
-* transition distribution checks
-* dormancy status distribution checks
-* holdout-style return-rate validation
-
-
+The key rule is that teams should not create conflicting definitions. The feature file defines the official fields. EDA, modeling, asset impact, and dashboard work should consume those fields instead of redefining persona, lifecycle, or journey logic.
 
 ## Advanced Modeling Extensions
 
 ### UMAP + HDBSCAN
 
-Planned use:
+UMAP + HDBSCAN is the best near-term modeling extension because the current feature table is already developer-level and modeling-ready.
+
+Use it to:
 
 * identify natural behavioral segments
-* detect outliers/noise
+* separate high-intent and low-intent developers
+* detect outliers or noise points
 * visualize developer similarity
-* complement persona and journey labels
+* support recommendations and storytelling
+
+UMAP should be framed as structure discovery and visualization, not as formal statistical validation.
 
 ### Hidden Markov Model
 
-Planned use:
+HMM is a later extension.
 
-* infer hidden journey states from weekly behavior sequences
-* smooth noisy activity patterns
-* estimate transition probabilities
-* estimate most likely next state
+Use it only after sequence features are finalized because HMM needs regular time-based observations. It can eventually support:
 
-Current status:
+* hidden journey state inference
+* transition probabilities
+* next-state prediction
+* churn and reactivation dynamics
 
-* Weekly feature table exists.
-* HMM model is not yet implemented.
+HMM should extend the interpretable framework, not replace it.
 
+## Key Principle
 
-
-## How to Run
-
-### Setup
-
-Install required packages:
-
-```bash
-pip install -r requirements.txt
-```
-
-### Build Database
-
-Run:
-
-```text
-Creating_duckDB.ipynb
-Cleaning.ipynb
-```
-
-### Run Feature Engineering
-
-Run:
-
-```text
-FeatureEngineering.ipynb
-```
-
-### Connect to DuckDB
-
-```python
-import duckdb
-con = duckdb.connect("developer_project.duckdb")
-```
-
-### Inspect Final Profile
-
-```sql
-SELECT *
-FROM dev_profile_final_v3
-LIMIT 10;
-```
-
-### Validate Final Row Grain
-
-```sql
-SELECT
-    COUNT(*) AS rows,
-    COUNT(DISTINCT developer_id) AS developers
-FROM dev_profile_final_v3;
-```
-
-Rows should equal distinct developers.
-
-
-
-## Key Insight
-
-Engagement does not equal adoption.
-
-This project distinguishes:
-
-* passive activity from meaningful activity
-* tourists from activated developers
-* current state from lifetime persona
-* dormant developers from users who never activated
-* cumulative business snapshots from non-cumulative modeling sequences
-
-The goal is to create a trustworthy, repeatable system for understanding and influencing developer journeys.
-
-
-
-## Guiding Principle
-
-> Keep the baseline interpretable and validated. Use advanced models as extensions, not as replacements for the behavioral logic.
+Build the interpretable and validated behavioral foundation first. Then use advanced models to deepen the analysis, not to hide the logic.

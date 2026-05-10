@@ -1,59 +1,77 @@
-# Client-facing explanation: current activity assignments and feature logic
+# Client-Facing Explanation: Current Activity Assignments and Feature Logic
 
-Use this section as the client explanation for how the current feature engineering pipeline works. The final notebook is `FeatureEngineering.ipynb`, and the main output table is `dev_profile_final_v3`.
+Use this document as the client-facing explanation for how the current feature engineering pipeline works.
 
-Current run context from the notebook:
+Current primary feature notebook:
 
-* Activity date range: `2020-01-01` to `2026-03-12`
-* Anchor date for 30/90/180-day windows: `2026-03-12`
-* Activity rows in `activity_ontology_v1`: `69,347,501`
-* Developers in final profile: `9,381,508`
+```text
+FeatureEngineering_v2.ipynb
+```
+
+Current final profile table:
+
+```text
+dev_profile_final_v4
+```
+
+Current EDA and validation notebook:
+
+```text
+Combined_EDA_Features.ipynb
+```
 
 ## One-page flow
 
 ```text
-Raw activity data + contact data
+Raw activity data + contact data + SDK aggregate data
         |
         v
 Clean and standardize source tables
         |
         v
-activity_enriched_v1
-Join each activity row to developer/contact context
+activity_base_v2
+Create activity-only base table
         |
         v
-activity_ontology_v1
-Assign each activity row four meaning tags:
+activity_labeled_v2
+Assign each activity row four behavior tags:
 journey_signal, effort_level, persona_hint, modality
         |
         v
-Developer feature tables
-Aggregate tagged activities into 30d, 90d, 180d, weekly, and lifetime views
+Non-overlapping recency feature tables
+0_30d, 30_90d, 90_180d
         |
         v
-Current activity assignments
-Assign journey state, persona, transition, activation, and dormancy labels
+Lifetime feature table
+Summarize full developer history and max stage reached
         |
         v
-dev_profile_final_v3
-One row per developer for dashboards, segmentation, targeting, and client review
+Persona and lifecycle logic
+Assign persona, behavior journey stage, user type, and lifecycle status
+        |
+        v
+dev_profile_final_v4
+One row per developer for EDA, modeling, dashboards, and recommendations
 ```
 
 ## Why the pipeline is built this way
 
-The model does not treat every activity as equal. A passive view, a training, a download, an API call, and a forum contribution all mean different things. So the first step is to translate raw activity names into business meaning before any developer-level scoring happens.
+The model does not treat every activity as equal. A passive view, a training, a download, an API call, and a forum contribution all mean different things. The first step is to translate raw activity names and activity details into business meaning before any developer-level scoring happens.
 
-The logic is intentionally rule-based and interpretable. That lets us explain every final assignment back to a client: which activity happened, what it meant, how strongly it counted, and how it changed the developer's profile.
+The logic is intentionally rule-based and interpretable. This lets us explain every final assignment back to a client: which activity happened, what it meant, how strongly it counted, and how it changed the developer's profile.
+
+The current v2 pipeline also aggregates activity before joining contact metadata. This prevents contact duplication from inflating activity metrics.
 
 ## Current activity assignments
 
-Each activity is assigned into three client-friendly behavioral dimensions:
+Each activity is assigned into four client-friendly behavioral dimensions:
 
 * `journey_signal`: where the activity sits in the adoption path.
 * `effort_level`: how much commitment the activity suggests.
+* `persona_hint`: which technical lane the activity suggests.
 * `modality`: the channel or format of the activity.
 
-| Source activity | Journey signal | Effort level | Modality | Client explanation |
+| Source activity or signal | Journey signal | Effort level | Modality | Client explanation |
 |---|---:|---:|---:|---|
 | `on-demand views` | Discover | Passive | On Demand | Awareness or browsing behavior. Useful signal, but low commitment. |
 | `dev program membership` | Discover | Passive | Membership | Developer has entered the ecosystem, but has not yet shown deeper usage. |
@@ -61,7 +79,8 @@ Each activity is assigned into three client-friendly behavioral dimensions:
 | `product specific comms` | Discover | Passive | Communication | Product interest through communication engagement. |
 | `dli training` | Learn | Moderate | Training | Structured learning, stronger than passive browsing. |
 | `webinars`, `conference`, `conf sessions live`, `conf. sessions live`, `other events` | Learn | Moderate | Event | Educational or technical engagement. |
-| `devzone downloads` | Evaluate | Moderate | Download | Developer is pulling docs, samples, or assets to assess usefulness. |
+| `devzone downloads` with documentation or PDF paths | Discover or Evaluate | Passive or Moderate | Download | Documentation and PDF downloads show research, learning, or evaluation intent. |
+| `devzone downloads` with installer, toolkit, SDK, package, `.deb`, `.rpm`, or `.exe` paths | Build | High | Download | Technical package or installer downloads are stronger evidence of hands-on usage. |
 | `program applications` | Evaluate | Moderate | Application | Intent signal, but not automatically proof of building yet. |
 | `ngc downloads` | Build | High | Download | Pulling models, containers, or technical assets suggests hands-on use. |
 | `hosted api`, `model api` | Build | High | Hosted API | API usage is treated as direct technical interaction. |
@@ -74,22 +93,66 @@ Each activity is assigned into three client-friendly behavioral dimensions:
 
 Additional keyword logic catches behavior hidden in text fields:
 
-* Documentation, docs, whitepaper, guide, sample, or asset terms are treated as `Evaluate`.
-* API catalog, installer, container, Docker, workspace, notebook, or SDK terms are treated as `Build`.
-* Speaker, instructor, and presenter roles are treated as `Champion`.
+* Documentation, docs, whitepaper, guide, sample, or asset terms support Discover or Evaluate.
+* API catalog, installer, container, Docker, workspace, notebook, SDK, or package terms support Build.
+* Speaker, instructor, and presenter roles support Champion.
 
-## Journey-state assignment logic
+## Important validation note for DevZone Downloads
 
-The activity-level tags are rolled up into developer-level feature tables over 30, 90, and 180 days. Then each window gets a journey state.
+Earlier versions assumed that each raw `activity` value mapped to exactly one journey signal and one effort level. That was true when `devzone downloads` had a single fixed label.
 
-The current-state label uses the 30-day window. The 90-day and 180-day labels provide recent and historical context.
+The current project intentionally improves that logic. DevZone Downloads can now map differently based on `filepath`.
+
+That means this validation rule is no longer correct for DevZone Downloads:
 
 ```text
-For each developer and time window:
+one activity name = one label
+```
 
-If no activity in the window
-    -> Dormant
-Else if Champion signal exists
+The updated validation approach should be:
+
+```text
+standard activities: one activity name = one label
+DevZone Downloads: validate filepath override distribution separately
+```
+
+This is not a bug. It is a more precise feature engineering rule.
+
+## Recency feature design
+
+The current pipeline uses non-overlapping windows:
+
+```text
+0_30d     = current behavior
+30_90d    = prior recent behavior
+90_180d   = older comparison behavior
+```
+
+This is different from cumulative windows. Non-overlapping windows help teams compare current behavior against earlier behavior without double-counting the same activity.
+
+Feature groups include:
+
+* volume features
+* score features
+* unique active days
+* journey counts
+* effort counts
+* modality counts
+* persona scores
+* recency and trend features
+
+## Behavior journey-state assignment
+
+Behavior journey stage answers:
+
+```text
+What is the developer doing based on recent behavior?
+```
+
+Example ordered logic:
+
+```text
+If Champion signal exists
     -> Champion
 Else if strong Build signal exists
     -> Build
@@ -100,31 +163,18 @@ Else if repeated or scored Learn signal exists
 Else if Discover activity exists
     -> Discover
 Else
-    -> Dormant
+    -> No recent behavior / Dormant-style lifecycle interpretation
 ```
 
-Current rule thresholds:
-
-* `Champion`: `champion_count >= 1` or `champion_score >= 10`
-* `Build`: `build_count >= 2`, `build_score >= 20`, `hosted_api_count >= 1`, or `cloud_workspace_count >= 1`
-* `Evaluate`: `evaluate_count >= 2`, `evaluate_score >= 15`, or `download_count >= 2`
-* `Learn`: `learn_count >= 2`, `learn_score >= 10`, or `training_count >= 1`
-* `Discover`: `discover_count >= 1`
-* `Dormant`: no qualifying activity in the window
-
-The rules are ordered from highest-intent to lowest-intent. That means if a developer has both viewing and building behavior, the building behavior wins because it is stronger evidence of adoption.
-
-`journey_state_confidence` is calculated as:
-
-```text
-largest journey-count bucket / total activity count in that window
-```
-
-So a developer with most of their recent activity in one state gets higher confidence than a developer with scattered signals.
+The rules are ordered from highest-intent to lowest-intent. If a developer has both viewing and building behavior, the building behavior wins because it is stronger evidence of adoption.
 
 ## Persona assignment logic
 
-Persona answers: "What does this developer appear to care about or build with?"
+Persona answers:
+
+```text
+What does this developer appear to care about or build with?
+```
 
 Current personas:
 
@@ -137,16 +187,15 @@ Current personas:
 
 The system uses two evidence sources:
 
-| Evidence source | Fields used | Weight | Why |
-|---|---|---:|---|
-| Activity evidence | `activity_name`, `filepath`, `lead_source_details` | 3.0 | Stronger because it reflects what the developer actually touched. |
-| Profile evidence | `development_areas`, `fields_of_interest`, `industry_segment_vertical` | 1.0 | Useful, but weaker because it is self-selected or contextual. |
-| Learning/community evidence | Training, webinars, events, forum-style activity | 0.75 | Indicates broad learning or community orientation. |
+| Evidence source | Fields used | Why it matters |
+|---|---|---|
+| Activity evidence | `activity_name`, `filepath`, `lead_source_details` | Stronger because it reflects what the developer actually touched. |
+| Profile evidence | `development_areas`, `fields_of_interest`, `industry_segment_vertical` | Useful, but weaker because it is self-selected or contextual. |
 
-Persona keywords are grouped by lane:
+Persona keywords are grouped by technical lane:
 
 * `CUDA`: CUDA, cuDNN, RAPIDS, NCCL, CUTLASS, DALI, Nsight, accelerated computing, GPU tooling, HPC terms.
-* `GenAI`: Triton, TensorRT, NeMo, NIM, LLM, GenAI, inference, foundation models, Hugging Face, PyTorch, TensorFlow, model names, TAO, computer vision terms.
+* `GenAI`: Triton, TensorRT, NeMo, NIM, LLM, GenAI, inference, foundation models, Hugging Face, PyTorch, TensorFlow, TAO, computer vision terms.
 * `Robotics`: Jetson, JetPack, DeepStream, Isaac, robotics, edge AI, autonomous machines, DRIVE, GXF runtime.
 * `Simulation`: Omniverse, OpenUSD, USD, simulation, digital twin, SimReady, PhysX, rendering, graphics.
 * `Learning_Community`: training, webinars, conferences, other events, and forum-style engagement.
@@ -160,144 +209,66 @@ Each activity row
 Check activity text and profile text for persona keywords
         |
         v
-Create row-level raw persona evidence
-activity matches count more than profile matches
+Create row-level persona evidence
         |
         v
-Multiply evidence by activity_score
-if activity_score is 0, use 1 so the event still counts
+Aggregate over developer lifetime
         |
         v
-Sum scores over the developer lifetime
-        |
-        v
-Normalize each lane score by total specific persona score
+Normalize each lane score
         |
         v
 Top normalized lane becomes the assigned persona
 ```
 
-Persona confidence is the top normalized lane score:
+Persona confidence is the top normalized lane score. The mixed persona flag identifies developers whose top two lanes are close.
 
-* `High`: `>= 0.70`
-* `Medium`: `>= 0.45` and `< 0.70`
-* `Low`: `< 0.45`
-* `Unknown`: no specific persona evidence
+## Lifecycle overlay
 
-`mixed_persona_flag = 1` when the top persona and second persona are within `0.15` of each other. This tells the client that the developer is multi-interest or ambiguous rather than purely one lane.
-
-## How the features are created
-
-The feature tables are built by aggregating the tagged activity rows.
+Lifecycle status answers:
 
 ```text
-activity_ontology_v1
-        |
-        v
-30/90/180-day cumulative windows
-        |
-        +--> Volume features
-        |    activity_count_total, unique_activity_days, active_weeks
-        |
-        +--> Score features
-        |    activity_score_sum, activity_score_avg
-        |
-        +--> Journey features
-        |    discover_count, learn_count, evaluate_count, build_count, champion_count
-        |    discover_score, learn_score, evaluate_score, build_score, champion_score
-        |
-        +--> Effort features
-        |    passive_count, moderate_count, high_effort_count, high_effort_score
-        |
-        +--> Modality features
-        |    download_count, hosted_api_count, cloud_workspace_count, training_count, event_count
-        |
-        +--> Persona features
-        |    cuda_score, genai_score, robotics_score, simulation_score, learning_community_score
-        |
-        +--> Recency features
-             days_since_last_activity, first_activity_date_window, last_activity_date_window
+How should we interpret the developer's current relationship with the platform?
 ```
 
-The windows are cumulative:
+The current lifecycle logic adds:
 
-```text
-30-day view  = current behavior
-90-day view  = recent trajectory, includes the 30-day window
-180-day view = broader historical context, includes the 90-day window
-```
+* `user_type`
+* `max_stage_reached`
+* `final_lifecycle_status`
 
-Every developer stays in the output even if they had no activity in a window. Missing window activity is converted to zero counts and a `Dormant` journey state. This keeps dashboard counts stable and prevents developers from disappearing simply because they were inactive.
+Example interpretations:
 
-## Transition logic
+| Field | Meaning |
+|---|---|
+| `user_type` | Separates tourist-like users, low-depth free-email style users, and real users. |
+| `max_stage_reached` | Shows the deepest historical adoption stage reached. |
+| `final_lifecycle_status` | Combines current recency and lifetime depth into a client-friendly status. |
 
-Transitions compare the 90-day state to the 30-day state.
+This separation matters because a developer who previously reached Build but is now inactive is different from someone who only clicked once and disappeared.
 
-```text
-90-day state + 30-day state
-        |
-        v
-If 90d Dormant and 30d active        -> Activated
-If 90d active and 30d Dormant        -> Churned
-If 30d rank is higher than 90d rank  -> Progressed
-If 30d rank equals 90d rank          -> Stable
-If 30d rank is lower than 90d rank   -> Regressed
-```
+## How the features support teams
 
-The `trajectory_label` also uses the 180-day state to explain the pattern:
-
-* `Consistent progression`: 180d rank < 90d rank < 30d rank
-* `Recently accelerated`: current 30d rank is higher than 90d and not dormant
-* `Re-engaged`: 180d was dormant, but 90d and 30d are active
-* `Newly dormant`: 30d is dormant, but 90d was active
-* `Fading`: 180d rank > 90d rank > 30d rank
-* `Plateaued`: 180d, 90d, and 30d ranks are the same
-* `Mixed / stable`: none of the above patterns clearly dominates
-
-## Dormancy and activation logic
-
-Dormancy is separate from journey state. This avoids calling a developer dormant if they were never meaningfully activated in the first place.
-
-Meaningful active week:
-
-```text
-A developer-week is meaningful if:
-
-Build or Champion activity happened
-OR Moderate or High effort activity happened
-OR passive Learn/Evaluate behavior happened on at least 2 distinct days in the week
-```
-
-Activation gate:
-
-```text
-Activated if:
-
-At least 1 Build or Champion event ever
-OR at least 2 meaningful active weeks in the first 90 days after first activity
-
-Otherwise:
-Unactivated
-```
-
-Dormancy status for activated developers:
-
-* `Active`: last meaningful week was fewer than `56` days ago
-* `At_Risk`: last meaningful week was `56` to `83` days ago
-* `Dormant`: last meaningful week was `84+` days ago
-* `Unactivated`: developer never passed the activation gate
-
-The 56-day and 84-day cutoffs are validated with a Kaplan-Meier style return-rate check. In the notebook validation, the expected ordering holds: `Active` developers have the highest next-8-week return rate, followed by `At_Risk`, then `Dormant`.
+| Team | How this file supports the team |
+|---|---|
+| Modeling Team | Uses clean feature columns from `dev_profile_final_v4` for UMAP + HDBSCAN. |
+| Model Validation Team | Uses validation outputs and alternative clustering comparisons to test model reliability. |
+| Asset Impact Team | Uses `activity_labeled_v2` and recency windows to connect asset usage to later behavior. |
+| Demographic and Cohort Profiling Team | Uses contact metadata joined last, plus persona and lifecycle fields, to explain segments. |
+| Recommendations Team | Converts segment, persona, journey, and lifecycle findings into action plans. |
+| Visualization Team | Builds dashboards from stable final tables and agreed definitions. |
+| Final Integration and QA Team | Ensures every notebook and deliverable uses the same definitions and table names. |
 
 ## Final client talking track
 
 ```text
 We first translate raw developer activity into behavioral meaning.
 Then we aggregate those behaviors into interpretable features.
-Then we assign each developer a current journey state, lifetime persona,
-trajectory label, and activation-aware dormancy status.
+Then we assign each developer a persona, current behavior stage,
+lifecycle status, and modeling-ready profile.
 
 The key point is that engagement is not treated as one generic score.
 The pipeline separates passive interest, learning, evaluation, building,
-community contribution, and true inactivity so clients can act on each group differently.
+community contribution, current inactivity, and never-activated users
+so NVIDIA can act on each group differently.
 ```
