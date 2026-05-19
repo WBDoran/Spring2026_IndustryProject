@@ -140,7 +140,7 @@ This may indicate that the Robotics persona is behaviorally broader, noisier, sm
 
 The notebook also compares cluster profile similarity within each cohort. It uses mean cluster profiles from the `mean_*` columns, scales them, and computes cosine similarity.
 
-`near_duplicate_flag = True` means two clusters within the same cohort have `profile_cosine_similarity >= 0.98`.
+`near_duplicate_flag = True` means two clusters within the same cohort have high profile similarity. The latest merge analysis uses `profile_cosine_similarity >= 0.90`, which should be interpreted as a broader behavioral-family merge threshold rather than a strict duplicate threshold.
 
 This does **not** change HDBSCAN labels. It identifies clusters that look similar enough to review for manual merging or shared labeling.
 
@@ -150,10 +150,41 @@ Latest merge-analysis totals:
 
 | Method | Cohorts | Original clusters | Merged clusters | Clusters combined |
 | --- | ---: | ---: | ---: | ---: |
-| Dormancy-only | 3 | 108 | 82 | 26 |
-| Dormancy x persona | 18 | 496 | 416 | 80 |
+| Dormancy-only | 3 | 108 | 54 | 54 |
+| Dormancy x persona | 18 | 496 | 302 | 194 |
 
-The near-duplicate analysis suggests that both approaches create some clusters with very similar average behavioral profiles. This is expected with HDBSCAN because it finds dense regions, not final business segments. A later stakeholder-facing segmentation layer can merge near-duplicate technical clusters into fewer named segments.
+The similarity analysis suggests that both approaches create technical clusters that can be grouped into broader behavioral families. This is expected with HDBSCAN because it finds dense regions, not final business segments. A later stakeholder-facing segmentation layer can merge similar technical clusters into fewer named segments.
+
+---
+
+## Dormancy-only Meta-clusters
+
+To create a smaller business-facing segmentation, the notebook now adds a meta-cluster layer on top of the dormancy-only HDBSCAN clusters.
+
+This treats the 108 non-noise HDBSCAN clusters as technical subclusters, compares their `mean_*` profile summaries, and uses agglomerative clustering to create **20 meta-clusters**.
+
+This does **not** overwrite the original HDBSCAN labels. It adds a new `meta_cluster_id` / `meta_cluster_label` layer.
+
+**Outputs:** `outputs/clustering/v3_meta_clusters/`
+
+| Output | Description |
+| --- | --- |
+| `dormancy_only_meta_cluster_map.csv` | Maps each dormancy-only HDBSCAN cluster to a meta-cluster |
+| `dormancy_only_meta_cluster_summary.csv` | Meta-cluster profiles and source HDBSCAN clusters |
+| `dormancy_only_cluster_results_with_meta.parquet` | Developer-level dormancy-only results with meta-cluster labels |
+
+Latest meta-cluster result:
+
+| Input technical clusters | Target meta-clusters | Output meta-clusters |
+| ---: | ---: | ---: |
+| 108 | 20 | 20 |
+
+The largest meta-cluster, `meta_00`, contains 52 HDBSCAN subclusters and 124,528 clustered developers. Its source clusters are mostly Explorer-like clusters across active, cooling, and dormant cohorts. Several smaller meta-clusters are more specialized, often capturing Builder-heavy or persona-specific behavior.
+
+This gives two useful layers:
+
+- **HDBSCAN cluster:** detailed technical subcluster for fine-grained review.
+- **Meta-cluster:** broader business-level grouping for a more manageable segment count.
 
 ---
 
@@ -167,9 +198,9 @@ Key takeaways:
 - Dormancy-only clustering gives the cleanest result for active users.
 - Dormancy x persona clustering gives more granular persona-specific clusters and more consistent weighted noise across dormancy groups.
 - Robotics appears to be the noisiest persona split and should be investigated.
-- Similar-cluster analysis shows that some HDBSCAN clusters may be better treated as subclusters of the same business segment.
+- Similar-cluster and meta-cluster analysis show that some HDBSCAN clusters are better treated as subclusters of the same business segment.
 
-Recommended next step: use dormancy-only clustering for a clean lifecycle-level segmentation baseline, then use dormancy x persona clustering as a diagnostic or persona-specific refinement layer. Robotics should get a focused review before final segment naming.
+Recommended next step: use dormancy-only clustering for a clean lifecycle-level segmentation baseline, then use the 20 meta-clusters as the candidate business-facing segment layer. Dormancy x persona clustering can remain a diagnostic or persona-specific refinement layer. Robotics should get a focused review before final segment naming.
 
 ---
 
@@ -184,4 +215,7 @@ Recommended next step: use dormancy-only clustering for a clean lifecycle-level 
 | `outputs/clustering/v3_corr_groups_by_persona/cluster_summary_table_all.csv` | Dormancy x persona cluster profiles |
 | `outputs/clustering/v3_analysis/top_similar_cluster_pairs.csv` | Similar cluster pairs within cohorts |
 | `outputs/clustering/v3_analysis/merged_cluster_counts_by_method.csv` | Original vs merged cluster totals |
+| `outputs/clustering/v3_meta_clusters/dormancy_only_meta_cluster_map.csv` | Mapping from HDBSCAN technical clusters to 20 meta-clusters |
+| `outputs/clustering/v3_meta_clusters/dormancy_only_meta_cluster_summary.csv` | Profiles of the 20 dormancy-only meta-clusters |
+| `outputs/clustering/v3_meta_clusters/dormancy_only_cluster_results_with_meta.parquet` | Developer-level labels with both HDBSCAN and meta-cluster IDs |
 
