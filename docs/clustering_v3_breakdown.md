@@ -2,30 +2,42 @@
 
 **Notebook:** [`clustering_v3.ipynb`](../clustering_v3.ipynb)
 
-**Goal:** Test whether clustering improves when highly correlated behavioral features are removed, and compare two cohorting strategies:
-
-- **Dormancy-only:** cluster separately for `active`, `cooling`, and `dormant`.
-- **Dormancy x persona:** cluster separately for each dormancy segment and persona group: `CUDA`, `GenAI`, `Robotics`, `Simulation`, `Learning_Community`, and `Unknown_or_Other`.
+**Goal:** Test whether clustering improves when highly correlated behavioral features are removed, compare dormancy-only vs dormancy×persona cohorting, tune HDBSCAN toward **~5–8 clusters per stratum**, and validate the final runs for leakage, stability, and interpretability.
 
 Compared with v2, the main v3 experiments remove the SVD step and run HDBSCAN directly on reduced, scaled feature sets.
 
+**Production baseline (latest):** dormancy-only clustering with **16 correlation-group representatives**, per-stratum hyperparameters from coarse + cooling tuning, saved under `outputs/clustering/v3_final_selected/`.
+
 ---
 
-## Notebook Flow
+## Notebook flow (high level)
 
-### 1. Correlation diagnostics
+| Section | Notebook topic | Purpose |
+| --- | --- | --- |
+| 1 | Correlation diagnostics | Pre-reduction correlation matrices |
+| 2 | Greedy correlation filtering | First feature reduction (~36/28/21 features per stratum) |
+| 3 | Correlation-group representatives | 16 global reps from 107 candidates |
+| 4 | Dormancy-only + dormancy×persona HDBSCAN | Baseline grouped-feature runs |
+| 5 | Similar-cluster / merge analysis | Cosine ≥0.9 profile similarity review |
+| 6 | Meta-clusters | 20 business-level groupings over 108 technical clusters |
+| 7 | **Coarse HDBSCAN tuning** | Grid toward ~6–8 clusters; reduce noise vs `v3_corr_groups` |
+| 8 | **Cooling expanded tuning** | Feature swaps + broader grid for cooling noise |
+| 9 | **Feature audit** | Why 16 requested → 16 / 12 / 11 used per stratum |
+| 10 | **Final selected configs + validation** | Locked hyperparameters, leakage, stability, sanity |
 
-The notebook first builds correlation matrices for the numeric clustering features from `dev_profile_final_v4`.
+---
 
-This checks the **pre-SVD feature space** so we can see whether the original 100+ behavioral features contain duplicate or near-duplicate signals. Correlation matrices and top correlated pairs are written under:
+## 1. Correlation diagnostics
 
-`outputs/clustering/v3/correlation/`
+The notebook builds correlation matrices for numeric clustering features from `dev_profile_final_v4` (pre-SVD space).
 
-### 2. Greedy correlation filtering
+**Output:** `outputs/clustering/v3/correlation/`
 
-The first reduction approach greedily keeps features while enforcing pairwise `abs(correlation) < 0.50`.
+---
 
-This produced a global selected feature list, but the usable feature count varied by dormancy segment because some features are all-null or zero-variance within specific strata.
+## 2. Greedy correlation filtering
+
+Greedy selection enforces pairwise `abs(correlation) < 0.50`. Usable feature count still varies by stratum (all-null / zero-variance drops).
 
 **Output:** `outputs/clustering/v3/`
 
@@ -36,13 +48,11 @@ This produced a global selected feature list, but the usable feature count varie
 | Dormant | 100,000 | 21 | 39 | 39.08 |
 | **Total / weighted** | **299,999** | - | **126** | **29.93** |
 
-This run reduced feature redundancy, but noise remained high, especially for dormant users.
+---
 
-### 3. Correlation-group representative features
+## 3. Correlation-group representative features
 
-The second reduction approach grouped features into connected components where features were linked by `abs(correlation) >= 0.50`, then selected one representative from each group.
-
-This is more interpretable than greedy filtering because whole correlated feature families are reviewed together. The grouped method reduced **107 candidate features to 16 representative features**. The selected representatives were:
+Features are grouped into connected components at `abs(correlation) >= 0.50`; one representative is chosen per group. **107 candidates → 16 representatives.**
 
 ```text
 log_activity_count_30_90d
@@ -63,7 +73,7 @@ robotics_share
 simulation_share
 ```
 
-The largest correlation group contained 89 activity, effort, recency, and lifetime engagement features. Its representative was `log_activity_count_30_90d`.
+The largest group (`corr_group_001`) contains **89** activity, effort, recency, and lifetime features; representative = `log_activity_count_30_90d`.
 
 **Outputs:**
 
@@ -72,11 +82,9 @@ The largest correlation group contained 89 activity, effort, recency, and lifeti
 
 ---
 
-## Main v3 Results
+## Main v3 results (baseline grouped features)
 
 ### Dormancy-only clustering
-
-This run clusters separately by dormancy segment, using the 16 correlation-group representative features and no SVD.
 
 **Output:** `outputs/clustering/v3_corr_groups/`
 
@@ -87,11 +95,9 @@ This run clusters separately by dormancy segment, using the 16 correlation-group
 | Dormant | 100,000 | 11 | 33 | 28.26 |
 | **Total / weighted** | **299,999** | - | **108** | **17.01** |
 
-This was the strongest result for **active users**, with noise dropping to **8.36%**. If the priority is clean segmentation of currently active developers, dormancy-only clustering looks especially strong.
+Strongest baseline for **active** users (8.36% noise). Cooling/dormant use fewer than 16 features after stratum-specific zero-variance / all-null drops.
 
-### Dormancy x persona clustering
-
-This run clusters each dormancy/persona cohort independently. It uses the same correlation-group representative features and no SVD.
+### Dormancy × persona clustering
 
 **Output:** `outputs/clustering/v3_corr_groups_by_persona/`
 
@@ -102,120 +108,254 @@ This run clusters each dormancy/persona cohort independently. It uses the same c
 | Dormant | 6 | 600,000 | 121 | 15.37 | 15.37 |
 | **Total** | **18** | **1,126,060** | **496** | **18.76** | **15.89** |
 
-The dormancy x persona approach produces more clusters because each persona cohort is clustered independently. It also has a more consistent weighted noise rate across dormancy bands, roughly **15-17%**.
-
-The tradeoff is that active-user noise is higher than the dormancy-only active run:
-
-- Dormancy-only active noise: **8.36%**
-- Dormancy x persona active weighted noise: **16.12%**
-
-So the persona split may be more stable across lifecycle/persona cohorts, but it gives up some of the very clean active-user clustering from the dormancy-only approach.
+Tradeoff: more granular persona-specific clusters, but active noise rises vs dormancy-only (16.12% vs 8.36% weighted).
 
 ---
 
-## Persona Noise Pattern
+## Coarse HDBSCAN tuning (~6–8 clusters)
 
-The persona split showed a strong noise difference by persona group.
+**Notebook section:** Coarse HDBSCAN tuning  
+**Output:** `outputs/clustering/v3_coarse_hdbscan/`
 
-| Persona group | Cohorts | Sample | Clusters | Simple avg noise % | Weighted noise % |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Robotics | 3 | 158,875 | 72 | 41.32 | 32.84 |
-| CUDA | 3 | 258,072 | 108 | 25.22 | 25.82 |
-| Learning_Community | 3 | 136,438 | 122 | 21.03 | 18.49 |
-| Simulation | 3 | 119,408 | 63 | 16.31 | 8.96 |
-| GenAI | 3 | 300,000 | 87 | 7.66 | 7.66 |
-| Unknown_or_Other | 3 | 153,267 | 44 | 0.98 | 0.75 |
+Grid over `min_cluster_frac` ∈ {0.005, 0.05, 0.10, 0.12, 0.15} and `cluster_selection_epsilon` ∈ {0.0, 0.25, 0.5, 0.75}, with the same 16 requested features and persona-stratified 100k samples.
 
-Robotics stands out as the highest-noise persona group. The highest individual noise rates were:
+**Best grid row per stratum (in-target cluster count 6–8):**
 
-- `cooling_robotics`: **55.92%**
-- `active_robotics`: **46.36%**
-- `dormant_robotics`: **21.68%**
+| Stratum | Sample | Features | Clusters | Noise % | min_cluster_frac | min_cluster_size | ε | Notes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Active | 99,999 | 16 | 8 | 7.46 | 0.005 | 499 | 0.50 | In-target; user later preferred **5** clusters |
+| Cooling | 100,000 | 12 | 6 | 21.42 | 0.050 | 5000 | 0.50 | Noise rose vs baseline 14.42% |
+| Dormant | 100,000 | 11 | 6 | 10.01 | 0.050 | 5000 | 0.25 | Large noise drop vs baseline 28.26% |
 
-This may indicate that the Robotics persona is behaviorally broader, noisier, smaller, or less cleanly separated by the current representative feature set. It is worth reviewing whether Robotics should be split differently, assigned with different confidence rules, or clustered with additional Robotics-specific features.
+**vs `v3_corr_groups` baseline (same features, default-style HDBSCAN):**
 
----
+| Stratum | Δ clusters | Δ noise % |
+| --- | ---: | ---: |
+| Active | −39 | −0.90 |
+| Cooling | −22 | +7.00 |
+| Dormant | −27 | −18.25 |
 
-## Similar Cluster / Merge Analysis
+Coarse tuning sharply reduced cluster count and dormant noise; **cooling noise increased** and motivated the dedicated cooling pass below.
 
-The notebook also compares cluster profile similarity within each cohort. It uses mean cluster profiles from the `mean_*` columns, scales them, and computes cosine similarity.
+**Key outputs:**
 
-`near_duplicate_flag = True` means two clusters within the same cohort have high profile similarity. The latest merge analysis uses `profile_cosine_similarity >= 0.90`, which should be interpreted as a broader behavioral-family merge threshold rather than a strict duplicate threshold.
-
-This does **not** change HDBSCAN labels. It identifies clusters that look similar enough to review for manual merging or shared labeling.
-
-**Outputs:** `outputs/clustering/v3_analysis/`
-
-Latest merge-analysis totals:
-
-| Method | Cohorts | Original clusters | Merged clusters | Clusters combined |
-| --- | ---: | ---: | ---: | ---: |
-| Dormancy-only | 3 | 108 | 54 | 54 |
-| Dormancy x persona | 18 | 496 | 302 | 194 |
-
-The similarity analysis suggests that both approaches create technical clusters that can be grouped into broader behavioral families. This is expected with HDBSCAN because it finds dense regions, not final business segments. A later stakeholder-facing segmentation layer can merge similar technical clusters into fewer named segments.
+- `hdbscan_tuning_grid_all.csv`
+- `hdbscan_tuning_best_per_stratum.csv`
+- `run_summary.csv`
+- Per-stratum `cluster_results.parquet`, `features_used.csv`, `preprocessor.joblib`
 
 ---
 
-## Dormancy-only Meta-clusters
+## Feature audit (16 reps → features actually used)
 
-To create a smaller business-facing segmentation, the notebook now adds a meta-cluster layer on top of the dormancy-only HDBSCAN clusters.
+**Notebook section:** Feature audit  
+**Output:** `outputs/clustering/v3_feature_audit/`
 
-This treats the 108 non-noise HDBSCAN clusters as technical subclusters, compares their `mean_*` profile summaries, and uses agglomerative clustering to create **20 meta-clusters**.
+Same **16 representatives requested** for all strata; after median impute + `RobustScaler`, zero-variance features are dropped **per stratum**.
 
-This does **not** overwrite the original HDBSCAN labels. It adds a new `meta_cluster_id` / `meta_cluster_label` layer.
+| Stratum | Requested | Used | Dropped | Drop reasons |
+| --- | ---: | ---: | ---: | --- |
+| Active | 16 | **16** | 0 | — |
+| Cooling | 16 | **12** | 4 | `activity_velocity_0_30_vs_30_90`, `build_velocity_0_30_vs_30_90` (zero variance); `days_since_last_activity_0_30d` (all null); `recent_champion_flag` (zero variance) |
+| Dormant | 16 | **11** | 5 | Above four + `log_activity_count_30_90d` (zero variance in dormant) |
 
-**Outputs:** `outputs/clustering/v3_meta_clusters/`
+Singleton correlation groups (velocity, `days_since_last_activity_0_30d`, `recent_champion_flag`) have **no alternate rep** in the grouped list; cooling swaps were tested separately in the cooling tuning cell (see below). Alternatives for recency/activity exist inside `corr_group_001` but were not auto-substituted in the baseline 16-rep pipeline.
 
-| Output | Description |
+**Outputs:** `sixteen_feature_audit_by_stratum.csv`, `feature_count_summary_by_stratum.csv`, `feature_kept_heatmap_by_stratum.png`
+
+---
+
+## Cooling expanded tuning
+
+**Notebook section:** Cooling stratum: expanded tuning + feature recovery  
+**Output:** `outputs/clustering/v3_cooling_tuning/`
+
+Motivation: coarse best cooling hit **21.42% noise**; four of sixteen reps are unusable in cooling.
+
+**Feature sets compared (phase 1 screen):**
+
+- `baseline_16_reps` — auto-drops to 12 (same as coarse)
+- `cooling_swap_16` — replace dead reps with `activity_count_30_90d`, `build_count_30_90d`, `days_since_last_activity`, `lifetime_champion_count`
+- `cooling_enriched_18` / `cooling_recency_18` — swap + extra axes
+- `cooling_auto_resolve_16` — backup map from `corr_group_001`
+
+**Finding:** On a full background grid, **baseline 12-feature reps** with retuned params beat swap/enriched sets for noise at ~6–8 clusters. Swap sets often **increased** noise (~27–31%). Production cooling config uses **baseline reps + tuning**, not swap-16.
+
+**Recommended cooling hyperparameters (from tuning + final fit):**
+
+| Parameter | Value |
+| --- | ---: |
+| `min_cluster_frac` | 0.04 |
+| `min_cluster_size` | 4000 |
+| `cluster_selection_epsilon` | 0.50 |
+| `min_samples` | 10 |
+
+---
+
+## Final selected HDBSCAN configs (production)
+
+**Notebook section:** Final selected HDBSCAN configs + validation  
+**Output:** `outputs/clustering/v3_final_selected/`
+
+Locked per-stratum settings used for reporting and validation:
+
+| Stratum | Clusters (fit) | Noise % | Features used | min_cluster_frac | min_cluster_size | ε | min_samples |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Active** | **5** | **5.72** | 16 | 0.005 | 499 | **0.75** | 15 |
+| **Cooling** | **6** | **16.29** | 12 | 0.04 | 4000 | 0.50 | 10 |
+| **Dormant** | **6** | **5.71** | 11 | 0.050 | 5000 | 0.50 | 25 |
+
+**Notes:**
+
+- Active uses **5 clusters** (user choice from grid row with 5 clusters / 6.15% noise at ε=0.75), not the coarse “best in-range” 8-cluster solution.
+- Cooling/dormant **cluster counts** may differ by ±1 from a single tuning grid row on rerun; final fit produced **6** clusters each vs tuning notes of 7 (cooling) and 5 (dormant).
+- **Cluster size imbalance** is strong (especially active: ~77% in one cluster). See validation outputs for persona mix per cluster.
+
+**Per-stratum artifacts:** `{stratum}/cluster_results.parquet`, `features_used.csv`, `run_config.json`, `preprocessor.joblib`  
+**Summary:** `final_run_summary.csv`
+
+---
+
+## Validation (final selected runs)
+
+**Output:** `outputs/clustering/v3_final_validation/`
+
+Run final-fit cell before validation cells (or load from `v3_final_selected/` parquet).
+
+### 1. Leakage and cohort-definition audit
+
+| Check | Result |
 | --- | --- |
-| `dormancy_only_meta_cluster_map.csv` | Maps each dormancy-only HDBSCAN cluster to a meta-cluster |
-| `dormancy_only_meta_cluster_summary.csv` | Meta-cluster profiles and source HDBSCAN clusters |
-| `dormancy_only_cluster_results_with_meta.parquet` | Developer-level dormancy-only results with meta-cluster labels |
+| Stratum flags in X (`cooling_flag`, `dormant_flag`, `has_activity_0_30d`, `dormancy_status`) | **Not** in the 16 reps; constant in cohort SQL only |
+| Persona in distance matrix | **Excluded** (persona used for sampling only) |
+| Persona vs cluster (Cramér’s V) | Active **0.20 (low)**; Cooling **0.55 (high)**; Dormant **0.52 (high)** |
+| Single-feature dominance (high \|corr\| with cluster id) | Active: `mixed_persona_flag`, lifetime learn/DLI; Cooling: **`robotics_share`**; Dormant: **`simulation_share`** |
 
-Latest meta-cluster result:
+Cooling/dormant clusters align with **persona-flavored** axes (shares + lifetime channels), not a leak of `dormancy_status`.
 
-| Input technical clusters | Target meta-clusters | Output meta-clusters |
-| ---: | ---: | ---: |
-| 108 | 20 | 20 |
+### 2. Stability and overfitting
 
-The largest meta-cluster, `meta_00`, contains 52 HDBSCAN subclusters and 124,528 clustered developers. Its source clusters are mostly Explorer-like clusters across active, cooling, and dormant cohorts. Several smaller meta-clusters are more specialized, often capturing Builder-heavy or persona-specific behavior.
+| Stratum | Bootstrap ARI (mean) | Interpretation |
+| --- | ---: | --- |
+| Active | 0.98 | Very stable |
+| Cooling | 0.81 | Stable (more variable than active) |
+| Dormant | 0.92 | Stable |
 
-This gives two useful layers:
+**Holdout test (70/30 + `approximate_predict`):** holdout noise **100%** for all strata — indicates the split/predict setup is **not informative**, not that the full model assigns everyone to noise. **Trust bootstrap ARI** for stability conclusions.
 
-- **HDBSCAN cluster:** detailed technical subcluster for fine-grained review.
-- **Meta-cluster:** broader business-level grouping for a more manageable segment count.
+**Permutation silhouette (largest drops when shuffling one feature):**
+
+| Stratum | Top driving features |
+| --- | --- |
+| Active | Small drops across features (~0.01–0.02) — structure spread across many axes |
+| Cooling | `learning_community_share`, `robotics_share`, `mixed_persona_flag` |
+| Dormant | `lifetime_learn_count`, `simulation_share`, `mixed_persona_flag` |
+
+### 3. Sanity checks
+
+| Stratum | cluster_count pass | noise_pct pass | min_cluster_size rule | Silhouette (non-noise) |
+| --- | --- | --- | --- | ---: |
+| Active | ✓ (5) | ✓ | ✓ | 0.18 |
+| Cooling | ✗ (6 vs 7 expected) | ✓ | ✓ | 0.35 |
+| Dormant | ✗ (6 vs 5 expected) | ✓ | ✓ | 0.34 |
+
+**Outputs:** `leakage_feature_audit.csv`, `persona_cluster_association.csv`, `stability_summary.csv`, `permutation_silhouette_drops.csv`, `sanity_checks.csv`, `cluster_size_distribution.csv`
 
 ---
 
-## Interpretation
+## Persona noise pattern (dormancy × persona baseline)
 
-The biggest v3 improvement came from using **correlation-group representative features** rather than either the original SVD approach or the initial greedy correlation filter.
+| Persona group | Cohorts | Sample | Clusters | Weighted noise % |
+| --- | ---: | ---: | ---: | ---: |
+| Robotics | 3 | 158,875 | 72 | 32.84 |
+| CUDA | 3 | 258,072 | 108 | 25.82 |
+| Learning_Community | 3 | 136,438 | 122 | 18.49 |
+| Simulation | 3 | 119,408 | 63 | 8.96 |
+| GenAI | 3 | 300,000 | 87 | 7.66 |
+| Unknown_or_Other | 3 | 153,267 | 44 | 0.75 |
 
-Key takeaways:
-
-- Removing highly correlated feature families reduced noise substantially.
-- Dormancy-only clustering gives the cleanest result for active users.
-- Dormancy x persona clustering gives more granular persona-specific clusters and more consistent weighted noise across dormancy groups.
-- Robotics appears to be the noisiest persona split and should be investigated.
-- Similar-cluster and meta-cluster analysis show that some HDBSCAN clusters are better treated as subclusters of the same business segment.
-
-Recommended next step: use dormancy-only clustering for a clean lifecycle-level segmentation baseline, then use the 20 meta-clusters as the candidate business-facing segment layer. Dormancy x persona clustering can remain a diagnostic or persona-specific refinement layer. Robotics should get a focused review before final segment naming.
+Robotics remains the noisiest persona split (`cooling_robotics` up to **55.92%** in baseline persona runs).
 
 ---
 
-## Primary Output Files
+## Similar cluster / merge analysis
+
+Cosine similarity on cluster `mean_*` profiles; `profile_cosine_similarity >= 0.90` flags near-duplicate **review** pairs (does not relabel HDBSCAN).
+
+**Output:** `outputs/clustering/v3_analysis/`
+
+| Method | Original clusters | Merged (review) clusters |
+| --- | ---: | ---: |
+| Dormancy-only | 108 | 54 |
+| Dormancy × persona | 496 | 302 |
+
+---
+
+## Dormancy-only meta-clusters
+
+Agglomerative clustering on **108** non-noise HDBSCAN cluster profiles → **20 meta-clusters** for business-facing labels.
+
+**Output:** `outputs/clustering/v3_meta_clusters/`
+
+| Input technical clusters | Meta-clusters |
+| ---: | ---: |
+| 108 | 20 |
+
+Does not overwrite HDBSCAN labels; adds `meta_cluster_id` / `meta_cluster_label` on developer results.
+
+---
+
+## Interpretation (updated)
+
+1. **Feature reduction:** Correlation-group reps are the main v3 win vs greedy filter or SVD-heavy v2.
+2. **Coarse tuning:** Cuts cluster explosion and dormant noise; active can be tuned to **fewer, cleaner** clusters (5 at ε=0.75).
+3. **Cooling:** Still the hardest stratum — **~16% noise**, persona-linked clusters, **`robotics_share` / `learning_community_share`** dominate separation. Swap-in of extra `corr_group_001` features did not beat 12 baseline reps in grids.
+4. **Final production layer:** Use `v3_final_selected` for **5 / 6 / 6** clusters (active / cooling / dormant) with documented hyperparameters.
+5. **Validation:** No stratum-label leakage in X; bootstrap stability good; holdout predict test not reliable as implemented; describe cooling/dormant as **persona-tinged** segments.
+6. **Imbalance:** Expect one **dominant cluster per stratum** (e.g. active cluster 2 ≈ 77% GenAI-heavy) plus smaller niches and ~6–16% noise.
+7. **Meta-clusters:** Still useful to roll 108 baseline technical clusters into **20** business themes; can be recomputed on top of final selected HDBSCAN labels when those replace the original `v3_corr_groups` assignment in downstream work.
+
+**Recommended use:**
+
+- **Lifecycle reporting:** `v3_final_selected` dormancy-only runs.
+- **Persona diagnostics:** `v3_corr_groups_by_persona` and persona validation tables.
+- **Business naming:** meta-cluster layer + cluster profile CSVs + persona crosstabs from validation.
+
+---
+
+## Primary output files
 
 | File | Description |
 | --- | --- |
 | `outputs/clustering/v3/run_summary.csv` | Greedy correlation-filter run summary |
-| `outputs/clustering/v3_corr_groups/run_summary.csv` | Dormancy-only grouped-feature run summary |
-| `outputs/clustering/v3_corr_groups/cluster_summary_table_all.csv` | Dormancy-only cluster profiles |
-| `outputs/clustering/v3_corr_groups_by_persona/run_summary.csv` | Dormancy x persona run summary |
-| `outputs/clustering/v3_corr_groups_by_persona/cluster_summary_table_all.csv` | Dormancy x persona cluster profiles |
-| `outputs/clustering/v3_analysis/top_similar_cluster_pairs.csv` | Similar cluster pairs within cohorts |
-| `outputs/clustering/v3_analysis/merged_cluster_counts_by_method.csv` | Original vs merged cluster totals |
-| `outputs/clustering/v3_meta_clusters/dormancy_only_meta_cluster_map.csv` | Mapping from HDBSCAN technical clusters to 20 meta-clusters |
-| `outputs/clustering/v3_meta_clusters/dormancy_only_meta_cluster_summary.csv` | Profiles of the 20 dormancy-only meta-clusters |
-| `outputs/clustering/v3_meta_clusters/dormancy_only_cluster_results_with_meta.parquet` | Developer-level labels with both HDBSCAN and meta-cluster IDs |
+| `outputs/clustering/v3_corr_groups/run_summary.csv` | Dormancy-only grouped-feature baseline |
+| `outputs/clustering/v3_corr_groups/cluster_summary_table_all.csv` | Baseline dormancy-only cluster profiles |
+| `outputs/clustering/v3_corr_groups_by_persona/run_summary.csv` | Dormancy × persona run summary |
+| `outputs/clustering/v3_coarse_hdbscan/hdbscan_tuning_grid_all.csv` | Coarse hyperparameter grid |
+| `outputs/clustering/v3_coarse_hdbscan/hdbscan_tuning_best_per_stratum.csv` | Best coarse config per stratum |
+| `outputs/clustering/v3_feature_audit/sixteen_feature_audit_by_stratum.csv` | Per-feature kept/dropped by stratum |
+| `outputs/clustering/v3_cooling_tuning/phase1_feature_set_screen.csv` | Cooling feature-set comparison |
+| `outputs/clustering/v3_cooling_tuning/phase2_expanded_param_grid.csv` | Cooling expanded parameter grid |
+| `outputs/clustering/v3_final_selected/final_run_summary.csv` | **Final** cluster/noise summary |
+| `outputs/clustering/v3_final_selected/{stratum}/cluster_results.parquet` | **Final** developer-level labels |
+| `outputs/clustering/v3_final_selected/{stratum}/run_config.json` | **Final** hyperparameters + features used |
+| `outputs/clustering/v3_final_validation/leakage_feature_audit.csv` | Leakage / dominance flags |
+| `outputs/clustering/v3_final_validation/stability_summary.csv` | Bootstrap ARI + holdout notes |
+| `outputs/clustering/v3_final_validation/sanity_checks.csv` | Cluster count, noise, silhouette |
+| `outputs/clustering/v3_final_validation/cluster_size_distribution.csv` | Cluster sizes and % of sample |
+| `outputs/clustering/v3_analysis/top_similar_cluster_pairs.csv` | Similar cluster pairs |
+| `outputs/clustering/v3_meta_clusters/dormancy_only_meta_cluster_map.csv` | HDBSCAN → meta-cluster map |
+| `outputs/clustering/v3_meta_clusters/dormancy_only_cluster_results_with_meta.parquet` | Developer labels with meta-cluster |
 
+---
+
+## Notebook section index (quick reference)
+
+| Cells (approx.) | Section |
+| --- | --- |
+| Early | Correlation diagnostics, greedy filter, 16 group reps |
+| Mid | `v3_corr_groups`, `v3_corr_groups_by_persona`, comparisons |
+| Meta | 20 meta-clusters on 108 baseline clusters |
+| Coarse tuning | Grid → `v3_coarse_hdbscan` |
+| Cooling tuning | Feature recovery + grid → `v3_cooling_tuning` |
+| Final + validation | Fit `v3_final_selected` → leakage, stability, sanity |
