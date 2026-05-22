@@ -349,6 +349,20 @@ Does not overwrite HDBSCAN labels; adds `meta_cluster_id` / `meta_cluster_label`
 
 ---
 
+## Final production pipeline notebook
+
+**Notebook:** [`clustering_final.ipynb`](../clustering_final.ipynb)
+
+End-to-end reproducible pipeline: documents feature selection and tuning, fits models on a **100k reference sample**, assigns **full cohort** labels via batched `approximate_predict`, writes `outputs/clustering/final/`.
+
+| Stratum | Features | Reference noise (100k) |
+| --- | --- | ---: |
+| Active | 16 reps | ~5.8% |
+| Cooling | Top-5 primary | ~14% |
+| Dormant | Top-5 primary | ~2.4% |
+
+---
+
 ## Notebook section index (quick reference)
 
 | Cells (approx.) | Section |
