@@ -1,4 +1,4 @@
-# GMM Developer Clustering — In-Depth Results Interpretation
+# GMM Developer Clustering - In-Depth Results Interpretation
 
 **Source data:** `GMM_Cluster.ipynb` + `GMM_Cluster_Summary.md`
 **Model:** Gaussian Mixture Model (full covariance, k = 7) on 7,660,278 active developers
@@ -14,7 +14,7 @@
 | Unactivated (zero lifetime activity) | 1,718,912 | 18.3% |
 | Active developers fit to GMM | 7,660,278 | 81.7% |
 
-More than one in six developers in the NVIDIA ecosystem has never registered a single activity event. This is not a data quality problem — it reflects the breadth of the developer registration funnel and the gap between sign-up and first engagement. The unactivated cohort is held out of the GMM fit entirely and re-attached afterward as a structural group (`cluster -1`).
+More than one in six developers in the NVIDIA ecosystem has never registered a single activity event. This is not a data quality problem - it reflects the breadth of the developer registration funnel and the gap between sign-up and first engagement. The unactivated cohort is held out of the GMM fit entirely and re-attached afterward as a structural group (`cluster -1`).
 
 ---
 
@@ -38,10 +38,10 @@ The BIC/AIC sweep was run on a stratified 100,000-row subsample using diagonal c
 | Metric | Value | Interpretation |
 |--------|-------|----------------|
 | Mean max-posterior | 0.999 | Developers fall almost entirely within one Gaussian; soft boundaries are rarely ambiguous |
-| Mean posterior entropy | 0.002 | Near-zero uncertainty — the model is confident about most assignments |
+| Mean posterior entropy | 0.002 | Near-zero uncertainty - the model is confident about most assignments |
 | Silhouette score (50k sample) | 0.163 | Low-to-moderate; expected for GMM on high-dimensional, behaviorally diverse data |
 
-The near-zero posterior entropy and 0.999 mean max-posterior indicate the model found seven well-separated Gaussian distributions rather than a continuum of fused clusters. The low silhouette score is not alarming — silhouette was designed for compact, convex clusters and underestimates GMM quality when cluster sizes are highly unequal (here, the largest cluster is 43× the smallest).
+The near-zero posterior entropy and 0.999 mean max-posterior indicate the model found seven well-separated Gaussian distributions rather than a continuum of fused clusters. The low silhouette score is not alarming - silhouette was designed for compact, convex clusters and underestimates GMM quality when cluster sizes are highly unequal (here, the largest cluster is 43× the smallest).
 
 The **hard assignment is clean; the soft posteriors are what add analytical value** downstream. Developers with entropy > 0.1 are genuinely ambiguous between two behavioral modes and warrant separate treatment.
 
@@ -60,11 +60,11 @@ The **hard assignment is clean; the soft posteriors are what add analytical valu
 | 6 | `cuda_api_volume_explorers` | 557,891 | 7.3% | 5.9% |
 | 3 | `low_effort_genai_tourists` | 151,784 | 2.0% | 1.6% |
 | 4 | `active_genai_api_discoverers` | 97,121 | 1.3% | 1.0% |
-| −1 | `unactivated` | 1,718,912 | — | 18.3% |
+| −1 | `unactivated` | 1,718,912 | - | 18.3% |
 
 ---
 
-### 4.1 Cluster 0 — `dormant_cuda_tourists` (43.5% of active base)
+### 4.1 Cluster 0 - `dormant_cuda_tourists` (43.5% of active base)
 
 **The single largest behavioral group in the NVIDIA developer ecosystem.**
 
@@ -87,15 +87,15 @@ The **hard assignment is clean; the soft posteriors are what add analytical valu
 
 #### Interpretation
 
-This cluster tells a story of **past engagement that did not convert to sustained presence.** These developers historically downloaded tools, built projects, and evaluated products — their devzone download score is the highest among non-elite clusters — but nearly nine in ten are now dormant. The 72% CUDA concentration suggests they arrived during CUDA's early or mainstream adoption wave and may have shifted attention elsewhere (or completed a specific project).
+This cluster tells a story of **past engagement that did not convert to sustained presence.** These developers historically downloaded tools, built projects, and evaluated products - their devzone download score is the highest among non-elite clusters - but nearly nine in ten are now dormant. The 72% CUDA concentration suggests they arrived during CUDA's early or mainstream adoption wave and may have shifted attention elsewhere (or completed a specific project).
 
 The low effort distribution (51.5%) combined with above-average build history means many of these developers reached a functional capability threshold and then stopped, rather than escalating into the champion or community tier.
 
-**What this cluster represents for NVIDIA:** The largest dormant-but-historically-engaged segment. These developers already understand NVIDIA tooling. Re-engagement campaigns targeting CUDA advances (CUDA 12.x, cuDNN updates, container-based dev environments) have a credible hook — the relationship was real, it just went silent.
+**What this cluster represents for NVIDIA:** The largest dormant-but-historically-engaged segment. These developers already understand NVIDIA tooling. Re-engagement campaigns targeting CUDA advances (CUDA 12.x, cuDNN updates, container-based dev environments) have a credible hook - the relationship was real, it just went silent.
 
 ---
 
-### 4.2 Cluster 1 — `high_effort_at_risk_builders` (19.7% of active base)
+### 4.2 Cluster 1 - `high_effort_at_risk_builders` (19.7% of active base)
 
 **The second-largest cluster and the most urgent retention target.**
 
@@ -119,7 +119,7 @@ The low effort distribution (51.5%) combined with above-average build history me
 
 The name `high_effort_at_risk_builders` reflects the **bimodal effort distribution** (75.8% low + 11.9% very high) rather than a uniformly high effort average. This cluster contains two overlapping sub-populations that the GMM placed in a single Gaussian: a majority of low-engagement GenAI experimenters and a minority of formerly intensive builders who have now drifted into the at-risk zone.
 
-The 55.6% GenAI persona is the defining characteristic. These developers arrived or reactivated during the GenAI boom, experimented at varying intensity levels, and are now largely inactive (62.7% dormant). The 11.9% enterprise account share is notable — enterprise GenAI developers sliding toward churn represent real organizational revenue risk for NVIDIA, not just ecosystem attrition.
+The 55.6% GenAI persona is the defining characteristic. These developers arrived or reactivated during the GenAI boom, experimented at varying intensity levels, and are now largely inactive (62.7% dormant). The 11.9% enterprise account share is notable - enterprise GenAI developers sliding toward churn represent real organizational revenue risk for NVIDIA, not just ecosystem attrition.
 
 The absence of build activity in the centroid (−0.55 z-score) and the Historically_Active journey stage (88.1%) mean most of this cluster explored GenAI tooling superficially and never converted to sustained product use.
 
@@ -127,7 +127,7 @@ The absence of build activity in the centroid (−0.55 z-score) and the Historic
 
 ---
 
-### 4.3 Cluster 2 — `elite_power_users` (10.0% of active base)
+### 4.3 Cluster 2 - `elite_power_users` (10.0% of active base)
 
 **The deepest engaged, highest-value segment in the ecosystem.**
 
@@ -152,17 +152,17 @@ The absence of build activity in the centroid (−0.55 z-score) and the Historic
 
 #### Interpretation
 
-Cluster 2 is the **ecosystem backbone** — 765,640 developers (≈8% of all 9.4M) who have deeply invested in NVIDIA tooling across multiple dimensions simultaneously. Their 25× above-average build count combined with strong forum presence and champion activity indicates not just product usage but **ecosystem citizenship**: they build with NVIDIA tools and help others do the same.
+Cluster 2 is the **ecosystem backbone** - 765,640 developers (≈8% of all 9.4M) who have deeply invested in NVIDIA tooling across multiple dimensions simultaneously. Their 25× above-average build count combined with strong forum presence and champion activity indicates not just product usage but **ecosystem citizenship**: they build with NVIDIA tools and help others do the same.
 
 The persona mix (CUDA dominant but with meaningful Robotics and GenAI shares) shows versatility across product lines. The 72.3% high/very-high effort rate means these developers consistently execute complex, multi-step workflows.
 
-The concerning signal is that 50.5% are now dormant and only 17.8% have an Active_Build lifecycle status. Their historical z-scores are extreme, but recent window activity is not in the top features — these are historically elite developers whose current engagement has faded. The 18.9% Builder journey stage is the highest of any cluster, confirming residual active engagement, but the dormancy rate suggests the segment is eroding.
+The concerning signal is that 50.5% are now dormant and only 17.8% have an Active_Build lifecycle status. Their historical z-scores are extreme, but recent window activity is not in the top features - these are historically elite developers whose current engagement has faded. The 18.9% Builder journey stage is the highest of any cluster, confirming residual active engagement, but the dormancy rate suggests the segment is eroding.
 
-**What this cluster represents for NVIDIA:** The highest CLV cohort by a wide margin. Every developer here who churns permanently is a disproportionate loss. Re-engagement should be white-glove: early SDK access, beta programs, co-developer opportunities, and technical deep-dives (not beginner content). The Robotics sub-population overlaps with Isaac Sim and autonomous systems — a rapidly growing NVIDIA investment area where these developers could be reactivated through Isaac-specific content.
+**What this cluster represents for NVIDIA:** The highest CLV cohort by a wide margin. Every developer here who churns permanently is a disproportionate loss. Re-engagement should be white-glove: early SDK access, beta programs, co-developer opportunities, and technical deep-dives (not beginner content). The Robotics sub-population overlaps with Isaac Sim and autonomous systems - a rapidly growing NVIDIA investment area where these developers could be reactivated through Isaac-specific content.
 
 ---
 
-### 4.4 Cluster 5 — `dormant_genai_dli_learners` (16.4% of active base)
+### 4.4 Cluster 5 - `dormant_genai_dli_learners` (16.4% of active base)
 
 **The dormant structured-learner segment, heavily GenAI and DLI-oriented.**
 
@@ -186,17 +186,17 @@ The concerning signal is that 50.5% are now dormant and only 17.8% have an Activ
 
 #### Interpretation
 
-Cluster 5 captures developers who **engaged with NVIDIA's learning ecosystem deliberately** — completing DLI courses, working through structured learning paths — but did not convert that learning investment into sustained build or product activity. The 46.2% GenAI persona and 18.4% Learning/Community share points to a population that arrived for AI education (likely students, academics, and early-career practitioners) and disengaged after course completion.
+Cluster 5 captures developers who **engaged with NVIDIA's learning ecosystem deliberately** - completing DLI courses, working through structured learning paths - but did not convert that learning investment into sustained build or product activity. The 46.2% GenAI persona and 18.4% Learning/Community share points to a population that arrived for AI education (likely students, academics, and early-career practitioners) and disengaged after course completion.
 
-The 30.4% university account affiliation is the highest of any active cluster alongside cluster 0, consistent with the academic learning profile. The 59.5% medium effort level (the highest medium-effort share of any cluster) reflects learners who engaged with moderate intensity — not casual tourists, but not platform power users either.
+The 30.4% university account affiliation is the highest of any active cluster alongside cluster 0, consistent with the academic learning profile. The 59.5% medium effort level (the highest medium-effort share of any cluster) reflects learners who engaged with moderate intensity - not casual tourists, but not platform power users either.
 
 The 98.6% Historically_Active behavior stage means essentially zero recent activity, yet the moderate historical effort and DLI training completion history suggests **genuine capability was built.** These developers know how to use NVIDIA tools; they simply stopped.
 
-**What this cluster represents for NVIDIA:** The DLI pipeline post-conversion problem. NVIDIA invested in educating these developers (DLI courses, learning materials), but the cohort did not become sustained platform users afterward. This is a monetization and retention gap: the product funnel delivered learning but not habitual usage. Re-engagement should build on course credentials — advanced DLI paths, project challenges, or hackathons that convert learning completion into production activity.
+**What this cluster represents for NVIDIA:** The DLI pipeline post-conversion problem. NVIDIA invested in educating these developers (DLI courses, learning materials), but the cohort did not become sustained platform users afterward. This is a monetization and retention gap: the product funnel delivered learning but not habitual usage. Re-engagement should build on course credentials - advanced DLI paths, project challenges, or hackathons that convert learning completion into production activity.
 
 ---
 
-### 4.5 Cluster 6 — `cuda_api_volume_explorers` (7.3% of active base)
+### 4.5 Cluster 6 - `cuda_api_volume_explorers` (7.3% of active base)
 
 **High-volume CUDA discoverers with extreme API and discovery counts but low average effort depth.**
 
@@ -212,25 +212,25 @@ The 98.6% Historically_Active behavior stage means essentially zero recent activ
 #### Centroid z-scores (selected)
 | Feature | z-score | Meaning |
 |---------|---------|---------|
-| `lifetime_discover_count` | +15.84 | Extreme discovery activity — 16× above mean |
+| `lifetime_discover_count` | +15.84 | Extreme discovery activity - 16× above mean |
 | `lifetime_api_count` | +17.08 | Extreme API call volume |
 | `activity_velocity_0_30_vs_30_90` | +4.01 | Recent activity accelerating vs. prior window |
 | `days_since_last_activity` | −0.91 | More recently active than average |
 
 #### Interpretation
 
-The combination of a 15.84 z-score on `lifetime_discover_count` and a 17.08 z-score on `lifetime_api_count` — both extreme even compared to the elite cluster — is the defining feature. Yet 74% of this cluster falls in the low-effort tier, with a bimodal distribution showing 19% very-high effort. This split strongly suggests **two overlapping sub-populations within the same Gaussian:**
+The combination of a 15.84 z-score on `lifetime_discover_count` and a 17.08 z-score on `lifetime_api_count` - both extreme even compared to the elite cluster - is the defining feature. Yet 74% of this cluster falls in the low-effort tier, with a bimodal distribution showing 19% very-high effort. This split strongly suggests **two overlapping sub-populations within the same Gaussian:**
 
-1. **High-volume automated or tool-driven API explorers** — developers whose counts are inflated by programmatic discovery activity (automated downloads, SDK exploration scripts, REST API polling), producing large raw counts at low per-activity effort.
-2. **Recently activated CUDA power users** — the 19% very-high effort tail combined with +4.01 velocity and −0.91 days_since suggests a portion of this cluster is genuinely accelerating in recent activity.
+1. **High-volume automated or tool-driven API explorers** - developers whose counts are inflated by programmatic discovery activity (automated downloads, SDK exploration scripts, REST API polling), producing large raw counts at low per-activity effort.
+2. **Recently activated CUDA power users** - the 19% very-high effort tail combined with +4.01 velocity and −0.91 days_since suggests a portion of this cluster is genuinely accelerating in recent activity.
 
-The 21.4% Active dormancy rate (highest of the non-elite, non-newcomer clusters) and 22.1% Active_Discover lifecycle status confirm that a real portion of this cluster is currently engaged. The zero Robotics and Simulation persona share is notable — this cluster is exclusively in the CUDA + GenAI space, with no multi-product diversification.
+The 21.4% Active dormancy rate (highest of the non-elite, non-newcomer clusters) and 22.1% Active_Discover lifecycle status confirm that a real portion of this cluster is currently engaged. The zero Robotics and Simulation persona share is notable - this cluster is exclusively in the CUDA + GenAI space, with no multi-product diversification.
 
 **What this cluster represents for NVIDIA:** A **heterogeneous exploratory cluster** that warrants further subdivision at higher k. The high-velocity, recently-active sub-population is a near-term conversion opportunity for developer adoption programs. The automated-count sub-population may inflate engagement metrics without representing human developer intent and should be flagged for data quality filtering in targeting pipelines.
 
 ---
 
-### 4.6 Cluster 3 — `low_effort_genai_tourists` (2.0% of active base)
+### 4.6 Cluster 3 - `low_effort_genai_tourists` (2.0% of active base)
 
 **Near-zero engagement GenAI entrants that technically have activity records but show virtually no behavioral depth.**
 
@@ -261,9 +261,9 @@ The 33.9% Unknown persona share indicates a substantial portion of this cluster 
 
 ---
 
-### 4.7 Cluster 4 — `active_genai_api_discoverers` (1.3% of active base)
+### 4.7 Cluster 4 - `active_genai_api_discoverers` (1.3% of active base)
 
-**The highest-velocity active cluster — small but extremely engaged.**
+**The highest-velocity active cluster - small but extremely engaged.**
 
 #### Core statistics
 | Feature | Value / Rate |
@@ -274,7 +274,7 @@ The 33.9% Unknown persona share indicates a substantial portion of this cluster 
 | Behavior journey stage | 68.0% Builder, 14.9% Learner, 6.4% Evaluator |
 | Lifecycle status | Active_Build 45.0%, Active_Champion 8.5%, Active_Discover 4.8% |
 
-#### Centroid z-scores (selected — extreme outliers)
+#### Centroid z-scores (selected - extreme outliers)
 | Feature | z-score | Meaning |
 |---------|---------|---------|
 | `lifetime_ngc_download_count` | +282.68 | Astronomical NGC download volume |
@@ -282,26 +282,26 @@ The 33.9% Unknown persona share indicates a substantial portion of this cluster 
 | `lifetime_champion_count` | +55.06 | Extreme champion-tier activity |
 | `lifetime_api_count` | +51.37 | Massive API usage |
 | `lifetime_forum_count` | +27.36 | Very high forum contribution |
-| `lifetime_bug_count` | +17.88 | Significant bug filing — deep platform engagement |
+| `lifetime_bug_count` | +17.88 | Significant bug filing - deep platform engagement |
 | `activity_velocity_0_30_vs_30_90` | +8.15 | Velocity 8× above mean |
 | `recent_build_flag` | +5.99 | Active builder right now |
 | `developer_effort_score` | +4.37 | 4× above mean effort |
 
 #### Interpretation
 
-Cluster 4 is empirically in a class by itself. The z-scores for NGC downloads (+282.68) and build count (+127.90) are not outlier artifacts — they reflect a cohort of **power-platform integrators** who engage with NVIDIA tools at a fundamentally different scale than any other group. The 45% Active_Build and 8.5% Active_Champion lifecycle statuses confirm current, sustained engagement. The 28% Robotics persona share is the highest of any cluster and co-occurs with very high build and NGC download activity, pointing to Isaac Sim / NVIDIA AI Enterprise users who build robotics applications at scale.
+Cluster 4 is empirically in a class by itself. The z-scores for NGC downloads (+282.68) and build count (+127.90) are not outlier artifacts - they reflect a cohort of **power-platform integrators** who engage with NVIDIA tools at a fundamentally different scale than any other group. The 45% Active_Build and 8.5% Active_Champion lifecycle statuses confirm current, sustained engagement. The 28% Robotics persona share is the highest of any cluster and co-occurs with very high build and NGC download activity, pointing to Isaac Sim / NVIDIA AI Enterprise users who build robotics applications at scale.
 
-The 8.15 velocity z-score means this cluster's activity in the most recent window is growing at 8× the average rate. These developers are not just historically active — they are **accelerating right now**.
+The 8.15 velocity z-score means this cluster's activity in the most recent window is growing at 8× the average rate. These developers are not just historically active - they are **accelerating right now**.
 
-The 1.3% share (97,121 developers) is small in relative terms but represents NVIDIA's most deeply integrated developer relationships. Losing even a fraction of this cohort — or failing to cultivate the next generation into it — has outsized strategic consequence.
+The 1.3% share (97,121 developers) is small in relative terms but represents NVIDIA's most deeply integrated developer relationships. Losing even a fraction of this cohort - or failing to cultivate the next generation into it - has outsized strategic consequence.
 
 **What this cluster represents for NVIDIA:** The NVIDIA Ecosystem Champions. This is the segment that influences other developers, fills the NGC repository, participates in beta programs, and generates the community content that attracts future developers. Priorities for this group: early access to next-generation tooling, direct engineering relationship programs, co-marketing opportunities, and community leadership roles (NVIDIA Developer Expert, NVIDIA AI Ambassador).
 
 ---
 
-### 4.8 Cluster −1 — `unactivated` (18.3% of all developers)
+### 4.8 Cluster −1 - `unactivated` (18.3% of all developers)
 
-1,718,912 developers registered but have zero lifetime activity events. They represent the top of the developer funnel — reached the point of registration but did not take any recorded action. This cohort is held out of all GMM modeling. Its strategic significance depends on whether NVIDIA has downstream contact information for these developers, as they represent raw pipeline that could be activated through targeted first-touch campaigns.
+1,718,912 developers registered but have zero lifetime activity events. They represent the top of the developer funnel - reached the point of registration but did not take any recorded action. This cohort is held out of all GMM modeling. Its strategic significance depends on whether NVIDIA has downstream contact information for these developers, as they represent raw pipeline that could be activated through targeted first-touch campaigns.
 
 ---
 
@@ -321,9 +321,9 @@ The 1.3% share (97,121 developers) is small in relative terms but represents NVI
 
 **Key observations:**
 - CUDA dominates three of the seven clusters (0, 2, 6), confirming it remains the largest single persona lane by developer count.
-- GenAI dominates two clusters (1, 5) — both inactive — suggesting the GenAI engagement wave produced a large number of non-converting signups rather than deepening existing CUDA relationships.
+- GenAI dominates two clusters (1, 5) - both inactive - suggesting the GenAI engagement wave produced a large number of non-converting signups rather than deepening existing CUDA relationships.
 - The elite cluster (4) has the highest Robotics share (28%), pointing to Isaac Sim / robotics application developers as a disproportionate contributor to the deepest engagement tier.
-- The 0% Learning/Community and Robotics/Simulation in cluster 6 is a structural signal — that cluster's API and discovery activity is narrowly scoped to CUDA/GenAI without multi-product breadth.
+- The 0% Learning/Community and Robotics/Simulation in cluster 6 is a structural signal - that cluster's API and discovery activity is narrowly scoped to CUDA/GenAI without multi-product breadth.
 
 ### 5.2 Dormancy Distribution by Cluster
 
@@ -337,7 +337,7 @@ The 1.3% share (97,121 developers) is small in relative terms but represents NVI
 | 5 | 1.4% | 3.4% | 30.0% | **65.2%** |
 | 6 | **21.4%** | 9.6% | 30.5% | 38.5% |
 
-The gradient is stark: cluster 4 is almost entirely active (70.5%), while clusters 0 and 5 are almost entirely dormant (86.3% and 65.2%). Clusters 2 and 1 — which contain historically high-value developers — have majority-dormant populations, making them the most strategically consequential re-engagement targets by volume × historical value.
+The gradient is stark: cluster 4 is almost entirely active (70.5%), while clusters 0 and 5 are almost entirely dormant (86.3% and 65.2%). Clusters 2 and 1 - which contain historically high-value developers - have majority-dormant populations, making them the most strategically consequential re-engagement targets by volume × historical value.
 
 **Retention risk concentration:** Combining clusters 0 (3.3M dormant CUDA developers) and 1 (940k dormant GenAI developers) yields approximately **4.24M dormant developers** who have real engagement history and known NVIDIA touchpoints.
 
@@ -353,7 +353,7 @@ The gradient is stark: cluster 4 is almost entirely active (70.5%), while cluste
 | 5 | 13.0% | 59.5% | 19.9% | 7.5% |
 | 6 | 74.0% | 1.3% | 5.7% | 19.0% |
 
-The effort staircase from cluster 4 (96.7% high/very-high) down to clusters 1 and 6 (majority low effort) is a natural engagement pyramid. Clusters 1 and 6's bimodal distributions (high low-effort + elevated very-high-effort tails) suggest each contains a hidden high-value sub-population suppressed by a larger low-engagement majority — a strong motivation for exploring k = 9–11 in a follow-up run.
+The effort staircase from cluster 4 (96.7% high/very-high) down to clusters 1 and 6 (majority low effort) is a natural engagement pyramid. Clusters 1 and 6's bimodal distributions (high low-effort + elevated very-high-effort tails) suggest each contains a hidden high-value sub-population suppressed by a larger low-engagement majority - a strong motivation for exploring k = 9–11 in a follow-up run.
 
 ### 5.4 Account Type Signals
 
@@ -390,15 +390,15 @@ The weekly GMM was fit on 14,908,480 developer-week rows using seven features: `
 | c7 | 311,831 | 2.1% |
 | c3 | 30,310 | 0.2% |
 
-Two clusters (c0 and c4) together account for ~60% of all developer-weeks, suggesting the majority of weekly behavior falls into two dominant modes — likely "low-to-no activity" and "light touch discovery activity." The long tail (c3 at 0.2%) likely captures extreme-intensity weeks from the cluster 4 developer-level cohort.
+Two clusters (c0 and c4) together account for ~60% of all developer-weeks, suggesting the majority of weekly behavior falls into two dominant modes - likely "low-to-no activity" and "light touch discovery activity." The long tail (c3 at 0.2%) likely captures extreme-intensity weeks from the cluster 4 developer-level cohort.
 
 ### What Weekly States Add Over Developer-Level Labels
 
 The developer-level GMM assigns each developer one persistent label based on lifetime behavior. The weekly GMM adds **temporal granularity**: the same developer might exhibit different weekly states across their history. The `weekly_cluster_sequence` string (e.g., "44440442...") captures this trajectory and enables:
 
-1. **Transition probability estimation** — how often does a week in state c1 (light activity) lead to state c5 (high-effort week) vs. returning to c4 (dormancy)?
-2. **Pre-churn pattern detection** — what weekly state sequences precede the final activity event?
-3. **HMM comparison baseline** — by treating the weekly GMM state sequences as a reference, team members running HMM can compare whether the HMM's hidden states recover the same weekly modes or reveal structurally different temporal patterns.
+1. **Transition probability estimation** - how often does a week in state c1 (light activity) lead to state c5 (high-effort week) vs. returning to c4 (dormancy)?
+2. **Pre-churn pattern detection** - what weekly state sequences precede the final activity event?
+3. **HMM comparison baseline** - by treating the weekly GMM state sequences as a reference, team members running HMM can compare whether the HMM's hidden states recover the same weekly modes or reveal structurally different temporal patterns.
 
 The posterior entropy of the weekly assignments will be lower than the developer-level model because weekly observations are more behaviorally homogeneous (a week is either "build-heavy" or not, with less ambiguity than lifetime aggregates).
 
@@ -427,13 +427,13 @@ The posterior entropy of the weekly assignments will be lower than the developer
 
 | Cluster | Recommended NVIDIA action |
 |---------|--------------------------|
-| 0 — dormant CUDA | CUDA 12.x migration guides, container-based dev refresh, "what's new" email series |
-| 1 — at-risk GenAI | NIM / TensorRT-LLM enterprise playbooks; account team outreach for enterprise sub-segment |
-| 2 — elite power users | Beta access programs, NGC contributor invitations, technical advisory panels |
-| 3 — new entrants | Onboarding challenge flows, guided DLI first path, project-based learning |
-| 4 — active champions | Developer Expert program, NGC co-publishing, early hardware access |
-| 5 — dormant DLI graduates | Advanced DLI sequences, hackathon invitations, alumni-style re-engagement |
-| 6 — API volume explorers | SDK integration guides, authenticated API migration paths, identity capture for CRM |
+| 0 - dormant CUDA | CUDA 12.x migration guides, container-based dev refresh, "what's new" email series |
+| 1 - at-risk GenAI | NIM / TensorRT-LLM enterprise playbooks; account team outreach for enterprise sub-segment |
+| 2 - elite power users | Beta access programs, NGC contributor invitations, technical advisory panels |
+| 3 - new entrants | Onboarding challenge flows, guided DLI first path, project-based learning |
+| 4 - active champions | Developer Expert program, NGC co-publishing, early hardware access |
+| 5 - dormant DLI graduates | Advanced DLI sequences, hackathon invitations, alumni-style re-engagement |
+| 6 - API volume explorers | SDK integration guides, authenticated API migration paths, identity capture for CRM |
 
 ---
 
@@ -464,4 +464,4 @@ The posterior entropy of the weekly assignments will be lower than the developer
 | 6 | cuda_api_volume_explorers | 558K (7.3%) | 21% | Low 74%, VHigh 19% | CUDA 62% | Deepen active sub-pop |
 | 3 | low_effort_genai_tourists | 152K (2.0%) | 22% | Low/VHigh bimodal | CUDA 36% | Deepen (onboard) |
 | 4 | active_genai_api_discoverers | 97K (1.3%) | 71% | VHigh 89% | CUDA 35%, Robotics 28% | Deepen (champion program) |
-| −1 | unactivated | 1.72M (18.3%) | — | — | — | First-touch activation |
+| −1 | unactivated | 1.72M (18.3%) | - | - | - | First-touch activation |
