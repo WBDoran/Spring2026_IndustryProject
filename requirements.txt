@@ -21,3 +21,5 @@ ipykernel>=6.0
 
 # Optional but useful
 tqdm>=4.65
+hdbscan
+umap-learn
