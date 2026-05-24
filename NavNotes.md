@@ -1,367 +1,356 @@
-# NVIDIA MSBA Project Constitution
+# README
 
-## Source of Truth Document for Team Alignment
+## NVIDIA Developer Lifecycle & Topic Modeling Pipeline
 
----
+### Project Overview
 
-# Purpose
+This repository contains the final clustering and topic modeling workflows developed for the NVIDIA x Cal Poly MSBA industry project.
 
-This document defines:
+The project goal is to understand:
 
-* Official project structure
-* Approved datasets and tables
-* Modeling rules
-* Feature governance
-* Team responsibilities
-* Business assumptions
-* Known limitations
+* developer engagement behavior
+* lifecycle progression
+* technology adoption patterns
+* engagement-to-adoption conversion
 
-Goal:
-Ensure all teams work from the same assumptions, definitions, and datasets throughout the NVIDIA MSBA project.
+across NVIDIA’s developer ecosystem.
 
----
+The workflows are designed to:
 
-# 1. Project Objective
+* scale to ~9M developers
+* remain interpretable for business stakeholders
+* support reproducible analytics
+* generate reusable outputs for downstream teams
 
-The project is NOT focused on:
 
-* maximizing clicks
-* maximizing downloads
-* maximizing raw engagement counts
 
-The project IS focused on:
+# Main Notebooks
 
-* identifying meaningful developer engagement
-* understanding technology adoption behavior
-* distinguishing casual users from high-intent builders
-* identifying pathways toward deeper NVIDIA ecosystem adoption
 
----
 
-# 2. Core Business Question
+## 1. `clustering_v11_hdbscan_main_rule_dormant_skip_existing.ipynb`
 
-> How do we ensure engagement efforts translate into real technology adoption rather than superficial interaction?
+### Purpose
 
----
+Primary production lifecycle clustering pipeline.
 
-# 3. Canonical Definitions
+This notebook performs:
 
-| Term                 | Definition                                                       |
-| -------------------- | ---------------------------------------------------------------- |
-| Activated Developer  | Developer with meaningful lifetime activity                      |
-| Active Developer     | Developer with activity in the 0–30d window                      |
-| Dormant Developer    | Developer with no meaningful activity beyond dormancy threshold  |
-| At-Risk Developer    | Developer showing declining recency/activity patterns            |
-| Builder              | Developer exhibiting build-oriented behavior                     |
-| Champion             | High-effort, high-depth developer with strong engagement         |
-| Tourist              | Low-depth engagement with minimal progression                    |
-| Meaningful Activity  | Activities weighted above casual engagement                      |
-| High-Effort Activity | API usage, builds, advanced workflows, production-oriented usage |
-| Persona              | Dominant engagement identity inferred from behavioral activity   |
+* lifecycle-first segmentation
+* HDBSCAN clustering on high-value active strata
+* lightweight dormant segmentation
+* DuckDB persistence
+* resumable/restart-safe execution
 
----
 
-# 4. Official Project Pipeline
+
+### Final Methodology
+
+| Stratum     | Method                  |
+| -- | -- |
+| active      | HDBSCAN                 |
+| cooling     | HDBSCAN                 |
+| at_risk     | HDBSCAN                 |
+| dormant     | Rule-based segmentation |
+| unactivated | Pseudo-group            |
+
+The final pipeline intentionally avoids expensive dormant HDBSCAN because dormant users are:
+
+* extremely large in volume
+* behaviorally sparse
+* low-value for dense clustering
+
+This dramatically improves runtime and interpretability. 
+
+
+
+### Key Features
+
+* Full-population clustering (~9.3M developers)
+* DuckDB persistence
+* resumable clustering
+* skip-existing logic
+* cluster profile summaries
+* business-ready outputs
+* visualization support tables
+* noise/outlier tracking
+
+
+
+### Main Outputs
+
+| Output                                                 | Description                               |
+|  | -- |
+| `dev_lifecycle_cluster_membership_v11_final`           | Final developer-level cluster assignments |
+| `dev_lifecycle_cluster_membership_v11_profile_summary` | Cluster-level feature summaries           |
+| `dev_lifecycle_cluster_run_stats_v11`                  | Run statistics and clustering diagnostics |
+
+
+
+### Final Cluster Counts
+
+| Stratum     | Clusters            |
+| -- | - |
+| active      | 6 + noise           |
+| cooling     | 7 + noise           |
+| at_risk     | 6 + noise           |
+| dormant     | 3 rule-based groups |
+| unactivated | pseudo-group        |
+
+
+
+### Important Notes
+
+* HDBSCAN noise is intentional and meaningful.
+* PCA/UMAP visualizations are diagnostics only.
+* Final business interpretation should occur at the profile-summary layer.
+* Tiny or near-duplicate clusters may still be merged manually later. 
+
+
+
+## 2. `clustering_final.ipynb`
+
+### Purpose
+
+Original clustering workflow / experimental reference notebook.
+
+This notebook contains:
+
+* earlier clustering experiments
+* tuning history
+* exploratory validation logic
+* baseline clustering methodology
+
+Useful for:
+
+* historical comparison
+* debugging
+* understanding model evolution
+
+Not intended as the final production pipeline.
+
+
+
+## 3. `cluster_visualization_pca_umap.ipynb`
+
+### Purpose
+
+Visualization and interpretation notebook for the V11 clustering outputs.
+
+This notebook:
+
+* reads saved cluster membership tables
+* joins cluster outputs back to developer profiles
+* creates PCA + UMAP projections
+* generates cluster diagnostics
+* exports visualization samples
+
+It does NOT rerun clustering. 
+
+
+
+### Visualization Design
+
+Main visualizations focus on:
+
+* active
+* cooling
+* at_risk
+
+because these are the actual modeled HDBSCAN strata.
+
+Dormant and unactivated are excluded by default because they are:
+
+* rule-based
+* pseudo-groups
+* not behaviorally clustered
+
+
+
+### Main Outputs
+
+| Output                                    | Description                   |
+| -- | -- |
+| `cluster_pca_coordinates_v11.csv`         | PCA embeddings                |
+| `cluster_umap_coordinates_v11.csv`        | UMAP embeddings               |
+| `cluster_visualization_sample_v11.csv`    | Sampled visualization dataset |
+| `cluster_visualization_centroids_v11.csv` | Cluster centroid coordinates  |
+
+
+
+### Visualization Features
+
+The notebook visualizes behavioral features such as:
+
+* activity velocity
+* effort scores
+* build behavior
+* persona entropy
+* modality diversity
+* lifetime activity depth
+
+
+
+
+
+## 4. `NVIDIA_topic_modeling_NMF.ipynb`
+
+### Purpose
+
+Latent developer ecosystem modeling using topic modeling.
+
+This notebook treats:
+
+* developers as documents
+* activities/assets as tokens
+* ecosystems as latent topics
+
+using:
+
+* TF-IDF
+* NMF (Non-Negative Matrix Factorization)
+
+instead of traditional clustering. 
+
+
+
+### Why Topic Modeling?
+
+Traditional clustering forces:
+
+> one developer → one cluster
+
+Topic modeling allows:
+
+> one developer → multiple ecosystem memberships
+
+Example:
+
+* 40% GenAI
+* 35% Robotics
+* 25% CUDA
+
+This better reflects real NVIDIA developer behavior.
+
+
+
+### Current Modeling Scope
+
+Included:
+
+* activity tokens
+* activity types
+* asset/course tokens
+* SDK integration scaffolding
+* lightweight semantic token cleaning
+
+Not included:
+
+* large engineered feature matrices
+* deep learning embeddings
+* transformer models
+
+
+
+### Topic Modeling Pipeline
 
 ```text
-01_create_database
+Developer Activity Logs
         ↓
-02_clean_raw_data
+Token Generation
         ↓
-03_feature_engineering
+TF-IDF
         ↓
-04_feature_sanity_checks
+NMF Topic Modeling
         ↓
-05_model_dataset_builder
+Developer Topic Mixtures
         ↓
-06_clustering_model
-        ↓
-07_cluster_profiling
-        ↓
-08_asset_impact_analysis
-        ↓
-09_final_dashboard_and_report
+Ecosystem Interpretation
 ```
 
----
 
-# 5. Source-of-Truth Tables
 
-## Primary Final Tables
+### Main Outputs
 
-| Logical Name            | Table                    |
-| ----------------------- | ------------------------ |
-| Final developer profile | dev_profile_final_v4     |
-| Recency features        | dev_recency_features_v2  |
-| Lifetime features       | dev_features_lifetime_v2 |
-| Journey state           | dev_journey_state_v2     |
-| Dormancy                | dev_dormancy_status_v2   |
-| Persona features        | dev_persona_v2           |
+| Output                       | Description                |
+| - | -- |
+| `developer_topic_scores.csv` | Developer topic mixtures   |
+| `topic_terms.csv`            | Top terms per topic        |
+| `topic_summary_template.csv` | Topic labeling template    |
+| `model_comparison.csv`       | Topic-count tuning results |
 
-These tables are:
 
-* one row per developer
-* validated
-* approved for downstream analysis
 
----
+### Example Ecosystems Identified
 
-# 6. Approved Modeling Population
+* GenAI / RAG workflows
+* CUDA optimization
+* Robotics / Jetson
+* Deep learning foundations
+* Inference deployment
+* Omniverse / simulation
+* Data science acceleration
 
-## Required Clustering Filter
 
-```sql
-WHERE activity_count_0_30d > 0
-```
 
-Optional broader filter:
+### Important Current Limitation
 
-```sql
-WHERE activity_count_0_30d > 0
-   OR activity_count_30_90d > 0
-```
+`sdk_download_final` currently lacks developer-level IDs, so SDK tokens cannot yet fully join back to developers. The SDK token pipeline is scaffolded and ready once developer-level linkage becomes available. 
 
-Reason:
-The full dataset is highly sparse and dominated by inactive users.
 
----
 
-# 7. Official Model-Ready Features
+# Recommended Execution Order
 
-## Engagement
+## Lifecycle Clustering
 
-* activity_rate_0_30d
-* activity_rate_30_90d
+1. Run `clustering_v11_hdbscan_main_rule_dormant_skip_existing.ipynb`
+2. Verify final DuckDB tables exist
+3. Run `cluster_visualization_pca_umap.ipynb`
+4. Perform cluster interpretation/business labeling
 
-## Build / Usage
 
-* build_count_0_30d
-* recent_build_flag
 
-## Effort
+## Topic Modeling
 
-* avg_effort_rank_0_30d
-* avg_score_effort_gap_0_30d
-* developer_effort_score
+1. Run `NVIDIA_topic_modeling_NMF.ipynb`
+2. Inspect topic terms
+3. Assign topic labels
+4. Join topic profiles back to developer profiles if needed
 
-## Diversity
 
-* unique_activity_types_0_30d
-* unique_modalities_0_30d
 
-## Momentum
+# Core Tables
 
-* activity_velocity_0_30_vs_30_90
-* weighted_recent_confidence_effort
+| Table                                                  | Purpose                                  |
+|  | - |
+| `dev_profile_final_v4`                                 | Final engineered developer profile table |
+| `activity_base_v2`                                     | Core activity dataset                    |
+| `sdk_download_final`                                   | SDK download metadata                    |
+| `dev_lifecycle_cluster_membership_v11_final`           | Final lifecycle cluster assignments      |
+| `dev_lifecycle_cluster_membership_v11_profile_summary` | Cluster summaries                        |
 
-## Behavioral Flags
 
-* has_high_effort_0_30d
-* active_non_builder_0_30d
-* low_volume_builder_0_30d
-* recent_champion_flag
 
-## Persona
+# Key Modeling Philosophy
 
-* persona
-* persona_entropy
-* mixed_persona_flag
+This project intentionally prioritizes:
 
----
+* interpretability
+* scalability
+* business usability
+* lifecycle understanding
 
-# 8. Features NOT Allowed for Clustering
+over:
 
-## Leakage / Output Labels
+* excessive model complexity
+* deep feature engineering
+* black-box architectures
 
-* behavior_journey_stage_30d
-* current_journey_state_30d
-* current_journey_rank_30d
-* dormancy_status
-* final_lifecycle_status
+The final outputs are intended to support:
 
-## Highly Redundant Features
-
-* activity_count_*
-* log_activity_count_*
-* weighted_recent_activity
-
-## Derived Score Mixes
-
-* effort_x_activity_score_sum
-
----
-
-# 9. Feature Taxonomy
-
-| Category         | Example Features                |
-| ---------------- | ------------------------------- |
-| Recency          | activity_count_0_30d            |
-| Intensity        | developer_effort_score          |
-| Breadth          | unique_activity_types_0_30d     |
-| Momentum         | activity_velocity_0_30_vs_30_90 |
-| Persona          | persona_entropy                 |
-| Lifecycle        | dormancy_status                 |
-| Behavioral Flags | recent_build_flag               |
-
----
-
-# 10. Cluster Interpretation Framework
-
-Each cluster should include:
-
-| Field              | Description                    |
-| ------------------ | ------------------------------ |
-| cluster_id         | Numerical cluster identifier   |
-| cluster_name       | Human-readable label           |
-| primary_behaviors  | Dominant engagement traits     |
-| persona_mix        | Major persona composition      |
-| lifecycle_mix      | Dormancy/lifecycle composition |
-| business_value     | Strategic importance           |
-| recommended_action | Suggested intervention         |
-
----
-
-# 11. Feature Usage Matrix
-
-| Feature                | Clustering | Profiling | Dashboard | Recommendations |
-| ---------------------- | ---------- | --------- | --------- | --------------- |
-| developer_effort_score | YES        | YES       | YES       | YES             |
-| persona                | YES        | YES       | YES       | YES             |
-| dormancy_status        | NO         | YES       | YES       | YES             |
-| final_lifecycle_status | NO         | YES       | YES       | YES             |
-| activity_count_*       | LIMITED    | YES       | YES       | LIMITED         |
-
----
-
-# 12. Known Data Limitations
-
-## High Sparsity
-
-* Most users have minimal recent activity
-* Most recent build features are sparse
-
-## Download Dominance
-
-* Downloads dominate engagement volume
-* Downloads may overestimate adoption depth
-
-## Metadata Quality
-
-* Large number of null/unknown organization/account fields
-* Some organization normalization issues
-
-## Persona Uncertainty
-
-* Mixed-persona developers exist
-* Unknown persona group behaves differently from named personas
-
-## Outliers
-
-* Extremely large activity counts exist
-* Use clipped/log features when appropriate
-
----
-
-# 13. Modeling Rules
-
-## Required Steps
-
-1. Standardize numerical features
-2. Handle missing values consistently
-3. Remove highly correlated features
-4. Use dimensionality reduction where appropriate
-5. Save model parameters and dataset versions
-
-## Recommended Algorithms
-
-* HDBSCAN
-* UMAP + HDBSCAN
-* KMeans (benchmark only)
-* DBSCAN (benchmark only)
-
----
-
-# 14. Business Assumptions
-
-The project assumes:
-
-* Deeper engagement matters more than raw clicks
-* Build-oriented activity reflects higher intent
-* Repeat multi-channel engagement indicates ecosystem stickiness
-* Effort and diversity are stronger signals than volume alone
-* Dormancy reflects reduced platform engagement
-
----
-
-# 15. Visualization Standards
-
-## Standard Colors
-
-| Concept     | Color  |
-| ----------- | ------ |
-| Active      | Green  |
-| At-Risk     | Orange |
-| Dormant     | Red    |
-| Unactivated | Gray   |
-| Builder     | Blue   |
-| Champion    | Purple |
-
-## Naming Standards
-
-* Use consistent cluster names across notebooks
-* Use consistent persona labels
-* Use standardized lifecycle terminology
-
----
-
-# 16. Deliverables Ownership Matrix
-
-| Deliverable     | Team                 | Inputs                       | Outputs            |
-| --------------- | -------------------- | ---------------------------- | ------------------ |
-| Clustering      | Modeling Team        | model_active_developers      | developer_clusters |
-| Profiling       | Cohort Team          | developer_clusters + profile | cluster_profiles   |
-| Asset Impact    | Asset Team           | activities + clusters        | impact_analysis    |
-| Recommendations | Recommendations Team | cluster outputs              | strategic_actions  |
-| Dashboard       | Visualization Team   | all outputs                  | final_dashboard    |
-
----
-
-# 17. Reproducibility Rules
-
-* Do NOT export full datasets
-* Query directly from DuckDB
-* Save:
-
-  * SQL queries
-  * notebook versions
-  * feature definitions
-  * model parameters
-
----
-
-# 18. Official Approved Dataset
-
-## Current Approved Dataset
-
-```text
-official_model_dataset_v1
-```
-
-### Properties
-
-* Active developers only
-* Approved feature set only
-* Standardized preprocessing
-* One row per developer
-
----
-
-# 20. Final Principle
-
-Consistency across teams is more important than individual optimization.
-
-If assumptions, features, or definitions change:
-
-* document the change
-* communicate the change
-* update this constitution document
+* developer cohort analysis
+* adoption maturity analysis
+* asset impact analysis
+* retention/churn analysis
+* ecosystem engagement mapping
+* downstream business interpretation
