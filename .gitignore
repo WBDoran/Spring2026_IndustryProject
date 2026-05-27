@@ -68,3 +68,7 @@ Data Cleaning Ideas and testing_files/libs/bootstrap/bootstrap-bb462d781dde1847d
 Alternative_Clustering/GMM_Clustering/CLAUDE.md
 gmm_artifacts/gmm_developer_v1.joblib
 gmm_artifacts/gmm_weekly_v1.joblib
+gmm_stratified_artifacts/gmm_active_v1.joblib
+message.txt
+gmm_stratified_artifacts/gmm_at_risk_v1.joblib
+gmm_stratified_artifacts/gmm_weekly_v1.joblib
