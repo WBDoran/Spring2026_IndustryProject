@@ -1,6 +1,6 @@
 # Impact Analysis README
 
-This file explains how to run [Cluster_Asset_Impact_Analysis_Pipeline.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline.ipynb).
+This file explains how to run [Cluster_Asset_Impact_Analysis_Pipeline.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline.ipynb) and the HDBSCAN-specific version [Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb).
 
 ## Purpose
 
@@ -50,6 +50,10 @@ Open and run:
 
 - [Cluster_Asset_Impact_Analysis_Pipeline.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline.ipynb)
 
+For the HDBSCAN v11 workflow, open and run:
+
+- [Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb)
+
 ## Parameter Setup
 
 In the parameter cell, set:
@@ -84,6 +88,19 @@ In that case, the notebook creates labels as:
 - `cluster_2`
 
 and so on.
+
+## HDBSCAN v11 Run Path
+
+If you are running the HDBSCAN workflow:
+
+1. Run [clustering_v11_hdbscan_main_rule_dormant_skip_existing.ipynb](/C:/Users/mason/Spring2026_IndustryProject/clustering_v11_hdbscan_main_rule_dormant_skip_existing.ipynb).
+2. Make sure its final membership output step completes and saves `dev_lifecycle_cluster_membership_v11_final`.
+3. Open [Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb).
+4. The parameter cell is already wired to:
+   - `SOURCE_TABLE = 'dev_lifecycle_cluster_membership_v11_final'`
+   - `CLUSTER_ID_COL = 'cluster_key'`
+   - `CLUSTER_LABEL_COL = None`
+5. In the normal case, just run the notebook top to bottom without changing those defaults.
 
 ## What The Pipeline Does
 
