@@ -2,6 +2,10 @@
 
 This file explains how to run [Cluster_Asset_Impact_Analysis_Pipeline.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline.ipynb) and the HDBSCAN-specific version [Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb).
 
+## Important Note
+
+When running the HDBSCAN specific version of the pipeline there is an important step that changes the cluster numbers to be ranked by their size. For example if active_3 was the largest active cluster the pipeline converts this cluster into active_0, then the second largest active cluster would be active_1. This is done for the active, cooling, and at_risk clusters.
+
 ## Purpose
 
 The pipeline notebook does two things in one run:
@@ -48,11 +52,11 @@ Optional:
 
 Open and run:
 
-- [Cluster_Asset_Impact_Analysis_Pipeline.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline.ipynb)
+- [Cluster_Asset_Impact_Analysis_Pipeline.ipynb]
 
 For the HDBSCAN v11 workflow, open and run:
 
-- [Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb)
+- [Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb]
 
 ## Parameter Setup
 
@@ -91,15 +95,20 @@ and so on.
 
 ## HDBSCAN v11 Run Path
 
-If you are running the HDBSCAN workflow:
+If you are running the HDBSCAN workflow from Nav's v11 final membership data:
 
-1. Run [clustering_v11_hdbscan_main_rule_dormant_skip_existing.ipynb](/C:/Users/mason/Spring2026_IndustryProject/clustering_v11_hdbscan_main_rule_dormant_skip_existing.ipynb).
-2. Make sure its final membership output step completes and saves `dev_lifecycle_cluster_membership_v11_final`.
-3. Open [Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb](/C:/Users/mason/Spring2026_IndustryProject/Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb).
-4. The parameter cell is already wired to:
-   - `SOURCE_TABLE = 'dev_lifecycle_cluster_membership_v11_final'`
+1. Export or save the NAV HDBSCAN final membership snapshot in your data folder as `Data/dev_lifecycle_cluster_membership_v11_final.parquet`.
+2. Open [Cluster_Asset_Impact_Analysis_Pipeline_hdbscan.ipynb]
+3. The parameter cell is already wired to:
+   - `SOURCE_TABLE = 'Data/dev_lifecycle_cluster_membership_v11_final.parquet'`
    - `CLUSTER_ID_COL = 'cluster_key'`
    - `CLUSTER_LABEL_COL = None`
+   - `REMAP_HDBSCAN_BY_SIZE = True`
+4. With `REMAP_HDBSCAN_BY_SIZE = True`, the notebook standardizes `active`, `cooling`, and `at_risk` cluster numbers by descending cluster size:
+   - largest non-noise cluster becomes `_0`
+   - second-largest becomes `_1`
+   - and so on
+   - `*_noise`, `Dormant_*`, and `unactivated` are left unchanged
 5. In the normal case, just run the notebook top to bottom without changing those defaults.
 
 ## What The Pipeline Does
@@ -127,6 +136,8 @@ The notebook creates a standardized output table with exactly:
 - `cluster_label`
 
 This is the standardization layer that makes the downstream analysis reusable across models.
+
+For the HDBSCAN parquet workflow, this step also standardizes the cluster numbering for `active`, `cooling`, and `at_risk` by descending cluster size so the labels are more stable and easier to interpret across reruns and exports.
 
 ### Step 3: Validate Standardized Output
 
