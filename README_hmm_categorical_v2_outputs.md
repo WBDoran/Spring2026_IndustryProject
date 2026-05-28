@@ -18,39 +18,41 @@ This document explains outputs from:
 
 In V2, weekly observations include 4 categories:
 
-- missing/no-activity week
-- GMM cluster 0
-- GMM cluster 1
-- GMM cluster 2
+| `gmm_weekly_cluster_id` | Official name | Slide label |
+|-------------------------|---------------|-------------|
+| `-1` | `missing_no_activity_week` | Missing week |
+| `0` | `routine_engagement_week` | Routine week |
+| `1` | `high_intensity_week` | High-intensity week |
+| `2` | `light_touch_week` | Light-touch week |
 
-Because `CategoricalHMM` requires non-negative contiguous IDs, observations are remapped to integer IDs before fitting.
+Because `CategoricalHMM` requires non-negative contiguous IDs, observations are remapped to integer IDs before fitting (see column names like `gmm_obs_1_orig_0` in emission CSVs).
 
-Important note: GMM weekly clusters (`0/1/2`) do **not** yet have finalized business names. Treat them as unlabeled behavior modes for now.
+**Full definitions and profiling stats:** [`README_HMM_GAUSSIAN_AND_CATEGORICAL.md` — Section 3.5](README_HMM_GAUSSIAN_AND_CATEGORICAL.md#35-weekly-gmm-cluster-names-official).
 
 ## Current Hidden-State Interpretation (Provisional)
 
 Based on current emission probabilities:
 
 - **HMM State 0 = low/mixed engagement**
-  - missing/no-activity: 39.8%
-  - GMM 0: 53.7%
-  - GMM 1: 6.4%
-  - GMM 2: 0.06%
-  - Rationale: mostly emits GMM 0, but still a sizable missing/no-activity share.
+  - missing: 39.8%
+  - routine (GMM 0): 53.7%
+  - high-intensity (GMM 1): 6.4%
+  - light-touch (GMM 2): 0.06%
+  - Rationale: mostly **routine**, but still a sizable **missing** share.
 
 - **HMM State 1 = active observed engagement**
-  - missing/no-activity: 0.27%
-  - GMM 0: 55.8%
-  - GMM 1: 5.5%
-  - GMM 2: 38.4%
-  - Rationale: almost never emits missing/no-activity; mostly real observed behavior.
+  - missing: 0.27%
+  - routine (GMM 0): 55.8%
+  - high-intensity (GMM 1): 5.5%
+  - light-touch (GMM 2): 38.4%
+  - Rationale: almost never **missing**; mix of **routine** and **light-touch** when on-platform.
 
 - **HMM State 2 = missing/no-activity**
-  - missing/no-activity: 96.6%
-  - GMM 0: 3.1%
-  - GMM 1: 0.03%
-  - GMM 2: 0.24%
-  - Rationale: overwhelmingly emits missing/no-activity.
+  - missing: 96.6%
+  - routine (GMM 0): 3.1%
+  - high-intensity (GMM 1): 0.03%
+  - light-touch (GMM 2): 0.24%
+  - Rationale: overwhelmingly **missing** weeks.
 
 These names are practical working labels for analysis and slides, and can be revised after GMM cluster semantics are finalized.
 
@@ -141,6 +143,6 @@ For interpretation, review outputs in this sequence:
 
 ## Caveats
 
-- GMM observed clusters are currently unlabeled behavior modes (no final business names yet).
-- Hidden-state names in this README are provisional and should be revisited after GMM semantics are finalized.
+- GMM cluster names are documented in [`README_HMM_GAUSSIAN_AND_CATEGORICAL.md`](README_HMM_GAUSSIAN_AND_CATEGORICAL.md#35-weekly-gmm-cluster-names-official).
+- Hidden-state names in this README are provisional HMM labels (separate from GMM week-type names).
 - This is an exploratory local-output workflow (CSV artifacts), not a finalized production serving pipeline.
