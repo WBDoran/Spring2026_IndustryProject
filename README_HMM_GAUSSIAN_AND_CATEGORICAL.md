@@ -121,25 +121,27 @@ This prevents the HMM from treating a 10-week silence as a single jump from week
 
 These names come from [`gmm_weekly_cluster_profiling.ipynb`](gmm_weekly_cluster_profiling.ipynb) (joined `dev_gmm_weekly_clusters_v1` × `dev_weekly_features_v2`). Use them anywhere the repo refers to **GMM 0 / 1 / 2**. They are **not** HMM hidden states.
 
+**Label convention in this doc:** tables use **Display Name (id)** — e.g. **Routine week (0)**, **Missing Dominant (2)** — so numeric IDs from CSVs stay traceable.
+
 | ID | Official name | Slide label | One-line description |
 |----|---------------|-------------|----------------------|
-| **0** | **`routine_engagement_week`** | Routine week | The **default engaged week**: moderate activity (~4.4 events/week), some build signal (~2.5 builds/week). Most common GMM mode in the population. |
-| **1** | **`high_intensity_week`** | High-intensity week | A **rare power-user week**: very high activity (~34 events/week) and builds (~26/week). Deep, heavy platform use. |
-| **2** | **`light_touch_week`** | Light-touch week | A **low-depth week**: lowest typical activity (~3.1 events/week), minimal builds (~0.7/week). Still on-platform, but shallow engagement. |
+| **Routine week (0)** | **`routine_engagement_week`** | Routine week | The **default engaged week**: moderate activity (~4.4 events/week), some build signal (~2.5 builds/week). Most common GMM mode in the population. |
+| **High-intensity week (1)** | **`high_intensity_week`** | High-intensity week | A **rare power-user week**: very high activity (~34 events/week) and builds (~26/week). Deep, heavy platform use. |
+| **Light-touch week (2)** | **`light_touch_week`** | Light-touch week | A **low-depth week**: lowest typical activity (~3.1 events/week), minimal builds (~0.7/week). Still on-platform, but shallow engagement. |
 
 **Fourth observed category (categorical HMM only):**
 
 | ID | Name | Slide label | Description |
 |----|------|-------------|-------------|
-| **-1** | **`missing_no_activity_week`** | Missing week | Gap-filled calendar week with **no row** in the GMM table between the developer’s first and last observed week. Not a GMM cluster—explicit silence / no observed weekly assignment. |
+| **Missing week (-1)** | **`missing_no_activity_week`** | Missing week | Gap-filled calendar week with **no row** in the GMM table between the developer’s first and last observed week. Not a GMM cluster—explicit silence / no observed weekly assignment. |
 
 **Profiling snapshot (full population, observed GMM weeks only):**
 
 | ID | `n_weeks` | `avg_activity_count` | `avg_build_count` | Notes |
 |----|-----------|----------------------|-------------------|--------|
-| 0 | ~8.99M | 4.36 | 2.48 | Modal week type |
-| 1 | ~383k | 33.76 | 26.48 | Rare spikes |
-| 2 | ~5.53M | 3.12 | 0.72 | Light engagement |
+| Routine week (0) | ~8.99M | 4.36 | 2.48 | Modal week type |
+| High-intensity week (1) | ~383k | 33.76 | 26.48 | Rare spikes |
+| Light-touch week (2) | ~5.53M | 3.12 | 0.72 | Light engagement |
 
 `pct_zero_activity_weeks ≈ 0` for IDs 0–2 because those rows exist in the GMM table; true zero-activity silence is modeled as **`-1`** in the categorical HMM after gap expansion.
 
@@ -175,10 +177,10 @@ After gap fill and remapping for `CategoricalHMM`:
 
 | Remapped obs ID | Original `gmm_weekly_cluster_id` | Official name |
 |-----------------|-------------------------------------|---------------|
-| `gmm_obs_0_orig_-1` | `-1` | `missing_no_activity_week` |
-| `gmm_obs_1_orig_0` | `0` | `routine_engagement_week` |
-| `gmm_obs_2_orig_1` | `1` | `high_intensity_week` |
-| `gmm_obs_3_orig_2` | `2` | `light_touch_week` |
+| `gmm_obs_0_orig_-1` | Missing week (-1) | `missing_no_activity_week` |
+| `gmm_obs_1_orig_0` | Routine week (0) | `routine_engagement_week` |
+| `gmm_obs_2_orig_1` | High-intensity week (1) | `high_intensity_week` |
+| `gmm_obs_3_orig_2` | Light-touch week (2) | `light_touch_week` |
 
 See [Section 3.5](#35-weekly-gmm-cluster-names-official) for definitions and profiling stats.
 
@@ -204,24 +206,24 @@ From emissions in [`hmm_categorical_emission_probabilities.csv`](hmm_categorical
 
 | HMM state | % of all weeks | Provisional name | Emission signature (using GMM names) |
 |-----------|----------------|------------------|--------------------------------------|
-| **2** | **91.1%** | `missing_dominant` | 96.6% **missing** (`-1`); 3.1% **routine** (GMM 0) |
-| **0** | 7.2% | `low_mixed_engagement` | 53.7% **routine**; 39.8% **missing**; rare **high-intensity** / **light-touch** |
-| **1** | 1.7% | `active_observed_engagement` | 0.3% missing; 55.8% **routine**; **38.4% light-touch** (GMM 2); 5.5% **high-intensity** (GMM 1) |
+| **Missing Dominant (2)** | **91.1%** | `missing_dominant` | 96.6% **Missing week (-1)**; 3.1% **Routine week (0)** |
+| **Low Mixed Engagement (0)** | 7.2% | `low_mixed_engagement` | 53.7% **Routine week (0)**; 39.8% **Missing week (-1)**; rare **High-intensity week (1)** / **Light-touch week (2)** |
+| **Active Observed Engagement (1)** | 1.7% | `active_observed_engagement` | 0.3% **Missing week (-1)**; 55.8% **Routine week (0)**; **38.4% Light-touch week (2)**; 5.5% **High-intensity week (1)** |
 
 **Transitions (one-week ahead):**
 
-| From → To | 0 | 1 | 2 |
-|-----------|---|---|---|
-| **0** | 0.87 | 0.12 | 0.01 |
-| **1** | 0.27 | 0.19 | 0.53 |
-| **2** | 0.006 | 0.006 | **0.99** |
+| From → To | Low Mixed Engagement (0) | Active Observed Engagement (1) | Missing Dominant (2) |
+|-----------|--------------------------|--------------------------------|----------------------|
+| **Low Mixed Engagement (0)** | 0.87 | 0.12 | 0.01 |
+| **Active Observed Engagement (1)** | 0.27 | 0.19 | 0.53 |
+| **Missing Dominant (2)** | 0.006 | 0.006 | **0.99** |
 
-State 2 is extremely sticky (98.8% stay). State 1 often returns to state 2 (53%) — consistent with rare “active spell” weeks surrounded by missing-dominated periods.
+Missing Dominant (2) is extremely sticky (98.8% stay). Active Observed Engagement (1) often returns to Missing Dominant (2) (53%) — consistent with rare “active spell” weeks surrounded by missing-dominated periods.
 
 **By lifecycle stratum (% of weeks in each hidden state):**
 
-| Stratum | State 0 (low/mixed) | State 1 (active) | State 2 (missing) |
-|---------|---------------------|------------------|-------------------|
+| Stratum | Low Mixed Engagement (0) | Active Observed Engagement (1) | Missing Dominant (2) |
+|---------|--------------------------|--------------------------------|----------------------|
 | active | 18.2% | 2.5% | **79.3%** |
 | cooling | 6.2% | 1.6% | **92.2%** |
 | at_risk | 4.4% | 1.5% | **94.1%** |
@@ -285,7 +287,7 @@ Active developers show the most **low/mixed** and **active_observed** signal; al
 
 **How produced:** Same by `(stratum, cluster_key, hmm_state)`; `share_within_cluster` for cluster-specific journey mix.
 
-**Typical use:** See whether e.g. `active_3` spends more time in active_observed (state 1) vs noise clusters that are mostly state 2.
+**Typical use:** See whether e.g. `active_3` spends more time in Active Observed Engagement (1) vs noise clusters that are mostly Missing Dominant (2).
 
 ---
 
@@ -350,29 +352,29 @@ From [`hmm_gaussian_emission_profiles_raw.csv`](hmm_gaussian_v1/hmm_gaussian_emi
 
 | HMM state | % of weeks | Provisional name | Signature |
 |-----------|------------|------------------|-------------|
-| **0** | **72.2%** | `inactive_gap_week` | 100% missing weeks; all features ≈ 0; `has_activity_week = 0` |
-| **1** | 18.7% | `steady_engagement_week` | Real activity; ~7.1 activities/week; moderate logs; low build share |
-| **2** | 9.1% | `build_intensity_spike_week` | Real activity; ~13.5 activities/week; **~86% build_share** |
+| **Inactive Gap Week (0)** | **72.2%** | `inactive_gap_week` | 100% missing weeks; all features ≈ 0; `has_activity_week = 0` |
+| **Steady Engagement Week (1)** | 18.7% | `steady_engagement_week` | Real activity; ~7.1 activities/week; moderate logs; low build share |
+| **Build Intensity Spike Week (2)** | 9.1% | `build_intensity_spike_week` | Real activity; ~13.5 activities/week; **~86% build_share** |
 
 **Z-space highlights** ([`hmm_gaussian_emission_profiles_z.csv`](hmm_gaussian_v1/hmm_gaussian_emission_profiles_z.csv)):
 
-- State 1: elevated `has_activity_week`, activity logs, diversity (+1.2 to +1.6σ)
-- State 2: very high `build_share` (+3.05σ), high activity score (+2.33σ)
+- Steady Engagement Week (1): elevated `has_activity_week`, activity logs, diversity (+1.2 to +1.6σ)
+- Build Intensity Spike Week (2): very high `build_share` (+3.05σ), high activity score (+2.33σ)
 
 **Transitions:**
 
-| From → To | 0 (inactive) | 1 (steady) | 2 (build) |
-|-----------|--------------|------------|-----------|
-| **0** | **0.86** | 0.08 | 0.06 |
-| **1** | 0.32 | **0.64** | 0.04 |
-| **2** | **0.51** | 0.09 | 0.40 |
+| From → To | Inactive Gap Week (0) | Steady Engagement Week (1) | Build Intensity Spike Week (2) |
+|-----------|-----------------------|----------------------------|--------------------------------|
+| **Inactive Gap Week (0)** | **0.86** | 0.08 | 0.06 |
+| **Steady Engagement Week (1)** | 0.32 | **0.64** | 0.04 |
+| **Build Intensity Spike Week (2)** | **0.51** | 0.09 | 0.40 |
 
-Inactive weeks are sticky. Build-spike weeks often revert to inactive (51%) rather than staying in build (40%). Steady weeks often lapse to inactive (32%).
+Inactive Gap Week (0) weeks are sticky. Build Intensity Spike Week (2) weeks often revert to Inactive Gap Week (0) (51%) rather than staying in build (40%). Steady Engagement Week (1) weeks often lapse to inactive (32%).
 
 **By lifecycle stratum:**
 
-| Stratum | State 0 | State 1 (steady) | State 2 (build) |
-|---------|-----------|------------------|-----------------|
+| Stratum | Inactive Gap Week (0) | Steady Engagement Week (1) | Build Intensity Spike Week (2) |
+|---------|-----------------------|----------------------------|--------------------------------|
 | active | 61.3% | **29.3%** | 9.5% |
 | cooling | 80.2% | 11.4% | 8.3% |
 | at_risk | 77.1% | 13.8% | 9.1% |
@@ -430,13 +432,13 @@ Same role as categorical, for Gaussian decoded states.
 | Dimension | Categorical V2 | Gaussian V1 |
 |-----------|----------------|-------------|
 | **Weekly input** | GMM cluster ID (+ missing) | Continuous features |
-| **Gap handling** | Category `-1` | Zeros + `has_activity_week=0` |
+| **Gap handling** | Missing week (-1) | Zeros + `has_activity_week=0` |
 | **Rows in fit** | 3,688,458 | 1,079,360 |
 | **Lookback** | Full span per dev (in sample) | Last 104 weeks |
 | **Selected K** | 3 | 3 |
-| **Dominant hidden state** | 91% “missing-dominated” | 72% “inactive/gap” |
-| **Rare “active” signal** | 1.7% state 1 | 18.7% steady + 9.1% build |
-| **Distinctive extra signal** | **Light-touch** (GMM 2) in active HMM state 1 | Build-share spike in state 2 |
+| **Dominant hidden state** | 91% Missing Dominant (2) | 72% Inactive Gap Week (0) |
+| **Rare “active” signal** | 1.7% Active Observed Engagement (1) | 18.7% Steady Engagement Week (1) + 9.1% Build Intensity Spike Week (2) |
+| **Distinctive extra signal** | **Light-touch week (2)** in Active Observed Engagement (1) | Build-share spike in Build Intensity Spike Week (2) |
 | **BIC magnitude** | ~10⁶ | ~10⁷ (negative; not comparable) |
 
 **Complementary, not redundant:** Categorical explains journeys over **GMM personas**; Gaussian explains **intensity shape** (especially build-heavy weeks) without discretizing through GMM first.
@@ -452,7 +454,7 @@ This section ties the two HMMs to the **NVIDIA Industry Project** goal: understa
 | Lens | Categorical V2 | Gaussian V1 |
 |------|----------------|-------------|
 | **Question** | “How does this developer move between **weekly behavior modes** (GMM) and **silent weeks**?” | “How does this developer move between **intensity regimes** (steady activity vs build-heavy vs inactive)?” |
-| **Observation** | Discrete: missing, GMM 0/1/2 | Continuous: logs, counts, effort/build/product **shares** |
+| **Observation** | Discrete: Missing week (-1), Routine week (0), High-intensity week (1), Light-touch week (2) | Continuous: logs, counts, effort/build/product **shares** |
 | **Depends on** | Upstream **weekly GMM** (`dev_gmm_weekly_clusters_v1`) | Upstream **feature table** (`dev_weekly_features_v2`) only |
 | **Best aligns with** | Existing pipeline: lifecycle clustering → weekly GMM → HMM | Feature science: “what drives at_risk?” without re-bucketing through GMM |
 | **Stakeholder language** | “They were in a **light/moderate/high** week, then went quiet” | “They had **steady** weeks, then a **build spike**, then dropped off” |
@@ -465,9 +467,9 @@ Both join back to **V11** (`stratum`, `cluster_key`) for interpretation. Neither
 |-------|----------------|-------------|
 | **Information loss** | Collapses each week to one of 4 symbols (3 GMM + missing) | Keeps graded signal (e.g. build_share ~86% vs ~0%) |
 | **GMM quality** | Errors/noise in GMM assignments **propagate** into HMM | Bypasses GMM; sensitive to feature scaling and zeros on gap weeks |
-| **Gap weeks** | Explicit category `-1` (clean for “went quiet”) | Zeros + `has_activity_week=0` (inactive state absorbs gaps) |
+| **Gap weeks** | Missing week (-1) (clean for “went quiet”) | Zeros + `has_activity_week=0` (Inactive Gap Week (0) absorbs gaps) |
 | **Sample in our runs** | ~3.7M developer-weeks, full span per dev in sample | ~1.1M weeks, **last 104 weeks** only |
-| **Rare “active” dynamics** | Only ~1.7% of weeks in “active_observed” hidden state | ~28% of weeks in steady + build states (among all weeks) |
+| **Rare “active” dynamics** | Only ~1.7% of weeks in Active Observed Engagement (1) | ~28% of weeks in Steady Engagement Week (1) + Build Intensity Spike Week (2) |
 | **Model pick** | Lowest BIC among 2–5 states | Lowest BIC among 2–5 **with** ≥1% mass per state |
 | **Operational cost** | Must maintain GMM weekly table + mapping | Only weekly features + V11 join |
 
@@ -481,7 +483,7 @@ Use **categorical V2 as the primary HMM** when the audience is NVIDIA partners, 
    Static segment (V11) → weekly persona (GMM) → journey (categorical HMM). One coherent arc without introducing a parallel feature-space model.
 
 2. **Playbooks tied to named weekly modes**  
-   Use the official GMM names (**routine**, **high-intensity**, **light-touch**, **missing**). Example: “mostly **routine** weeks with gaps” vs “when they are active, often **light-touch**” (matches HMM state 1 emissions).
+   Use the official GMM names (**routine**, **high-intensity**, **light-touch**, **missing**). Example: “mostly **routine** weeks with gaps” vs “when they are active, often **light-touch**” (matches Active Observed Engagement (1) emissions).
 
 3. **Comparing journeys across lifecycle strata**  
    Your run shows **active** developers with more **low/mixed** hidden-state weeks (18%) vs **at_risk/cooling** (mostly missing-dominated). That supports lifecycle storytelling: *active accounts still show more “observed engagement” mix in the categorical lens*.
@@ -492,14 +494,14 @@ Use **categorical V2 as the primary HMM** when the audience is NVIDIA partners, 
 5. **Stable discrete outputs for future tooling**  
    Hidden state + observed GMM category are **small integers**—easier for DuckDB rules, dashboards, or rule-based alerts than 11-dimensional Gaussian posteriors.
 
-**Categorical is weaker when:** you need fine distinction between “high activity with builds” vs “high activity without builds”—your active hidden state mixes **routine** (GMM 0) and **light-touch** (GMM 2); Gaussian separates that via `build_share`. Rare **high-intensity** (GMM 1) weeks are a separate bucket in GMM but uncommon in HMM emissions.
+**Categorical is weaker when:** you need fine distinction between “high activity with builds” vs “high activity without builds”—Active Observed Engagement (1) mixes **Routine week (0)** and **Light-touch week (2)**; Gaussian separates that via `build_share`. Rare **High-intensity week (1)** weeks are a separate GMM bucket but uncommon in HMM emissions.
 
 ### 7.4 Where Gaussian V1 is more beneficial
 
 Use **Gaussian V1 as the secondary / deep-dive HMM** when the question is about **how much** and **what kind** of activity, not which GMM bucket:
 
 1. **Build- and effort-shaped programs**  
-   State 2 in our run is a **build-intensity spike** week (~86% build share). That is directly relevant to NVIDIA narratives around **compilation/build workflows**, SDK adoption, and deep technical engagement—without re-deriving labels from GMM.
+   Build Intensity Spike Week (2) in our run is a **build-intensity spike** week (~86% build share). That is directly relevant to NVIDIA narratives around **compilation/build workflows**, SDK adoption, and deep technical engagement—without re-deriving labels from GMM.
 
 2. **Engagement intensity for active vs at_risk**  
    Among **active** developers, Gaussian assigns ~29% of weeks to **steady engagement** vs ~10% build-spike; cooling/at_risk are more inactive. Useful for questions like: *“Are at_risk developers only quiet, or do they still show burst weeks?”* (see build state ~9% even in at_risk).
@@ -513,7 +515,7 @@ Use **Gaussian V1 as the secondary / deep-dive HMM** when the question is about 
 5. **Internal data science validation**  
    Check whether GMM modes align with continuous regimes. If Gaussian “steady” and “build” weeks map cleanly onto **routine / high-intensity / light-touch**, GMM is validated; if not, that is a finding for NVIDIA about **discretization risk**.
 
-**Gaussian is weaker when:** you need a single slide tied to GMM cluster IDs, or when gap weeks dominate and you want a **dedicated missing symbol** (categorical’s 97% missing emission in state 2 is more explicit than Gaussian’s zero-vector inactive state).
+**Gaussian is weaker when:** you need a single slide tied to GMM cluster IDs, or when gap weeks dominate and you want a **dedicated missing symbol** (categorical’s 97% missing emission in Missing Dominant (2) is more explicit than Gaussian’s zero-vector inactive state).
 
 ### 7.5 Recommended split for this project (practical default)
 
@@ -540,20 +542,20 @@ These are **interpretation patterns** from our branch runs—not prescriptive NV
 
 **Active stratum**
 
-- *Categorical:* Still ~79% missing-dominated weeks (gap-filled timelines), but highest share of **low/mixed** and **active_observed** states vs other strata.  
-- *Gaussian:* ~29% **steady** + ~10% **build** weeks—best place to discuss healthy ongoing engagement.  
+- *Categorical:* Still ~79% Missing Dominant (2) weeks (gap-filled timelines), but highest share of **Low Mixed Engagement (0)** and **Active Observed Engagement (1)** vs other strata.  
+- *Gaussian:* ~29% **Steady Engagement Week (1)** + ~10% **Build Intensity Spike Week (2)**—best place to discuss healthy ongoing engagement.  
 - **Benefit:** Gaussian for “how intense”; categorical for “which GMM persona when they do show up.”
 
 **Cooling stratum**
 
-- *Categorical:* ~92% missing-dominated; little active_observed.  
-- *Gaussian:* ~80% inactive, lower steady share than active.  
+- *Categorical:* ~92% Missing Dominant (2); little Active Observed Engagement (1).  
+- *Gaussian:* ~80% Inactive Gap Week (0), lower Steady Engagement Week (1) share than active.  
 - **Benefit:** Both support “cooling = mostly quiet weeks”; Gaussian adds whether **any** build spikes remain (re-engagement hook).
 
 **At_risk stratum**
 
-- *Categorical:* ~94% missing-dominated; rare active_observed.  
-- *Gaussian:* ~77% inactive but non-trivial steady/build (~23% combined).  
+- *Categorical:* ~94% Missing Dominant (2); rare Active Observed Engagement (1).  
+- *Gaussian:* ~77% Inactive Gap Week (0) but non-trivial Steady Engagement Week (1) + Build Intensity Spike Week (2) (~23% combined).  
 - **Benefit:** Gaussian can flag **residual activity** that categorical buries in rare states; categorical makes **silence** explicit in emissions.
 
 ### 7.7 What we should not claim to NVIDIA
@@ -561,7 +563,7 @@ These are **interpretation patterns** from our branch runs—not prescriptive NV
 - **Do not** say one HMM is “more accurate” from BIC alone (different likelihoods and sample sizes).  
 - **Do not** treat HMM hidden states as new official segments—they are **weekly journey modes**, orthogonal to V11 membership.  
 - **Do not** ignore gap-fill: any “% time in state X” should note that long calendar gaps inflate inactive/missing states unless you filter to observed activity weeks.  
-- **Do not** merge categorical and Gaussian state IDs—they are different label spaces (state 1 in one model ≠ state 1 in the other).
+- **Do not** merge categorical and Gaussian state IDs—they are different label spaces (Active Observed Engagement (1) ≠ Steady Engagement Week (1)).
 
 ### 7.8 Suggested one-liner for stakeholders
 
