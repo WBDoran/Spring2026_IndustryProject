@@ -1,5 +1,7 @@
 # HMM Categorical V2 Output Guide
 
+> **Full comparison guide (categorical + Gaussian, all outputs, run findings):** [`README_HMM_GAUSSIAN_AND_CATEGORICAL.md`](README_HMM_GAUSSIAN_AND_CATEGORICAL.md)
+
 This document explains outputs from:
 
 - `hmm_categorical_v2_from_gmm_weekly_gapaware_reproducible.ipynb`
