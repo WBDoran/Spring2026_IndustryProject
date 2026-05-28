@@ -50,6 +50,11 @@ venv/
 Thumbs.db
 
 # =========================
+# MODEL ARTIFACTS (large files)
+# =========================
+*.joblib
+
+# =========================
 # OUTPUT FILES (OPTIONAL)
 # =========================
 *.html
