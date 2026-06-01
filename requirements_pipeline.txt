@@ -1,0 +1,15 @@
+duckdb
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+jupyter
+nbconvert
+hdbscan
+hmmlearn
+lightgbm
+xgboost
+joblib
+pyarrow
+openpyxl
