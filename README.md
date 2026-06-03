@@ -383,24 +383,6 @@ dev_profile_new_incoming_v1
 
 ---
 
-## Handoff Checklist
-
-Before final delivery, confirm that the package contains:
-
-- [ ] `README.md`
-- [ ] `PIPELINE_README.md`
-- [ ] `requirements_pipeline.txt`
-- [ ] `run_pipeline_A_full_reclustering.sh`
-- [ ] `run_pipeline_B_new_data_fixed_cluster_scoring.sh`
-- [ ] `Pipeline_A/` notebooks
-- [ ] `Pipeline_B/` notebooks
-- [ ] documentation of final tables
-- [ ] saved LightGBM artifacts from Pipeline A
-- [ ] notes on when to use Pipeline A versus Pipeline B
-- [ ] aggregate dashboard or presentation outputs
-
----
-
 ## One-Sentence Project Story
 
 This project converts NVIDIA developer engagement records into a repeatable segmentation and scoring framework that identifies meaningful technology adoption patterns, explains developer journeys, and supports future scoring without reclustering every new data batch.
