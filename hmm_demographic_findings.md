@@ -1,4 +1,4 @@
-# HMM Demographic Analysis — Findings
+# HMM Emission State Analysis — Findings
 **NVIDIA Developer Lifecycle Project**
 
 ---
@@ -41,8 +41,8 @@ identified from the weekly GMM model:
 | Dormant | 54.6% | 1.9% | 43.5% |
 
 The gradient across strata is clean and monotonic — as developers move toward disengagement,
-Moderate weeks decrease and Inactive weeks increase. This confirms the HMM emission sequences
-are capturing real lifecycle signal rather than noise.
+Moderate weeks decrease and Inactive weeks increase. This confirms the weekly GMM emission states
+carry meaningful lifecycle signal, supporting their suitability as inputs to HMM modeling.
 
 ---
 
@@ -111,7 +111,7 @@ Of the 177K developers who ever reached a Burst week:
 
 - The majority of burst-capable developers are now **dormant** — these are historically
   high-engagement developers whose burst weeks occurred in the past. This maps directly to the
-  `Dormant_Former_Builders` and `Dormant_Former_High_Effort` segments.
+  `Dormant_Former_Builders` segment.
 - Burst history in dormant and at-risk developers is a strong **re-engagement signal** for HMM
   to detect: a developer who has previously shown burst capacity is a higher-value reactivation
   target than one who never has.
@@ -121,7 +121,9 @@ Of the 177K developers who ever reached a Burst week:
 ## Key Takeaways for HMM Modeling
 
 1. The three emission states (Moderate, Burst, Inactive) cleanly separate lifecycle strata —
-   validating them as meaningful HMM observations.
+   confirming they carry meaningful lifecycle signal as inputs to HMM. Note: this does not
+   fully validate the HMM itself, which requires training and evaluating the model's transition
+   probabilities and predictions.
 2. Transition self-loops are strong across all strata, supporting a Markov structure assumption.
 3. At-risk developers show the most volatile transitions — HMM should be most informative here
    for early churn detection.
